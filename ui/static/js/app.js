@@ -1,392 +1,251 @@
 /**
- * Rezolotion Harness — Frontend Application Logic
- * Implements 9Router Provider & OAuth Management + Unified Multi-Agent Chat
+ * Claude Code Studio — Frontend Interactive Engine
+ * Handles 3-column layout, popovers, model switcher, context inspector,
+ * interactive choice chips, skills store, and WebSocket multi-agent chat.
  */
 
-// ── State ──────────────────────────────────────────────────────────────────
-let currentView = "chat";
-let currentProviderId = null;
-let currentOAuthData = null;
-let oauthPollingTimer = null;
-let ws = null;
-let totalTokens = { input: 0, output: 0 };
-let typingIndicators = {};
+// ── Application State ──────────────────────────────────────────────────────
+const state = {
+  currentView: "chat", // "chat" | "customize"
+  activeModel: "Opus 5",
+  isFastMode: false,
+  isThinkingAuto: true,
+  rightSidebarOpen: true,
+  contextUsage: {
+    total: 319600,
+    max: 1000000,
+    messages: 269200,
+    skills: 9900,
+    systemTools: 9200,
+    mcpTools: 7800,
+    systemPrompt: 3500,
+    free: 650400,
+  },
+  skillsCatalog: [
+    { id: "algorithmic-art", name: "algorithmic-art", author: "by Anthropic", desc: "Creating algorithmic art using p5.js with seeded randomness and interactive parameter exploration." },
+    { id: "brand-guidelines", name: "brand-guidelines", author: "by Anthropic", desc: "Applies Anthropic's official brand colors and typography to any sort of artifact that may benefit..." },
+    { id: "canvas-design", name: "canvas-design", author: "by Anthropic", desc: "Create beautiful visual art in .png and .pdf documents using design philosophy. You should us..." },
+    { id: "dcc-coauthoring", name: "dcc-coauthoring", author: "by Anthropic", desc: "Guide users through a structured workflow for co-authoring documentation. Use when user ..." },
+    { id: "internal-comms", name: "internal-comms", author: "by Anthropic", desc: "A set of resources to help me write all kinds of internal communications, using the formats th..." },
+    { id: "learn", name: "learn", author: "by Anthropic", desc: "Use this skill when the user wants intellectual understanding — learning how or why somethi..." },
+    { id: "mcp-builder", name: "mcp-builder", author: "by Anthropic", desc: "Guide for creating high-quality MCP (Model Context Protocol) servers that enable LLMs to i..." },
+    { id: "slack-gif-creator", name: "slack-gif-creator", author: "by Anthropic", desc: "Knowledge and utilities for creating animated GIFs optimized for Slack. Provides constraints, ..." },
+    { id: "theme-factory", name: "theme-factory", author: "by Anthropic", desc: "Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTM..." },
+    { id: "web-artifacts-builder", name: "web-artifacts-builder", author: "by Anthropic", desc: "Suite of tools for creating elaborate, multi-component claude.ai HTML artifacts using modern..." }
+  ],
+  addedSkills: new Set(["canvas-design", "learn"])
+};
 
-// ── DOM References ──────────────────────────────────────────────────────────
-const navChat = document.getElementById("nav-chat");
-const navProviders = document.getElementById("nav-providers");
-const viewChat = document.getElementById("view-chat");
-const viewProviders = document.getElementById("view-providers");
+// ── DOM Elements ───────────────────────────────────────────────────────────
+const leftSidebar = document.getElementById("left-sidebar");
+const rightSidebar = document.getElementById("right-sidebar");
+const studioChatView = document.getElementById("studio-chat-view");
+const studioCustomizeView = document.getElementById("studio-customize-view");
 
-const providersListView = document.getElementById("providers-list-view");
-const providerDetailView = document.getElementById("provider-detail-view");
-const providersGrid = document.getElementById("providers-grid");
-const btnBackToProviders = document.getElementById("btn-back-to-providers");
-const activeConnsBadge = document.getElementById("active-conns-badge");
-const sidebarHarnessList = document.getElementById("sidebar-harness-list");
+const navBtnNewChat = document.getElementById("nav-btn-new-chat");
+const navBtnCustomize = document.getElementById("nav-btn-customize");
+const btnToggleRightSidebar = document.getElementById("btn-toggle-right-sidebar");
+const btnCloseRightSidebar = document.getElementById("btn-close-right-sidebar");
 
-// Detail view refs
-const detailAvatar = document.getElementById("detail-avatar");
-const detailTitle = document.getElementById("detail-title");
-const detailConnsCount = document.getElementById("detail-connections-count");
-const detailRiskNotice = document.getElementById("detail-risk-notice");
-const detailRiskText = document.getElementById("detail-risk-text");
-const connectionsContainer = document.getElementById("connections-container");
-const modelsGrid = document.getElementById("models-grid");
-const btnOpenAddConnection = document.getElementById("btn-open-add-connection");
+// Popovers
+const modelPopover = document.getElementById("model-popover");
+const btnModelPicker = document.getElementById("btn-model-picker");
+const currentActiveModelLabel = document.getElementById("current-active-model-label");
+const moreModelsTrigger = document.getElementById("more-models-trigger");
+const moreModelsSubmenu = document.getElementById("more-models-submenu");
+const fastModeToggle = document.getElementById("fast-mode-toggle");
 
-// Modal refs
-const oauthModal = document.getElementById("oauth-modal");
-const modalProviderTitle = document.getElementById("modal-provider-title");
-const modalCloseBtn = document.getElementById("modal-close-btn");
-const modalAuthUrl = document.getElementById("modal-auth-url");
-const btnCopyAuthUrl = document.getElementById("btn-copy-auth-url");
-const modalCallbackInput = document.getElementById("modal-callback-input");
-const btnConnectOAuth = document.getElementById("btn-connect-oauth");
-const btnCancelOAuth = document.getElementById("btn-cancel-oauth");
-const popupStatusText = document.getElementById("popup-status-text");
+const contextPopover = document.getElementById("context-popover");
+const btnContextInspector = document.getElementById("btn-context-inspector");
 
-// Chat refs
-const chatMessages = document.getElementById("chat-messages");
-const chatForm = document.getElementById("chat-form");
-const chatTextarea = document.getElementById("chat-textarea");
-const chatSendBtn = document.getElementById("chat-send-btn");
-const tokenSummary = document.getElementById("token-summary");
-const btnClearHistory = document.getElementById("btn-clear-history");
+const filterPopover = document.getElementById("filter-popover");
+const btnProjectFilter = document.getElementById("btn-project-filter");
+
+// Chat & Inputs
+const messagesContainer = document.getElementById("messages-container");
+const studioChatForm = document.getElementById("studio-chat-form");
+const studioTextarea = document.getElementById("studio-textarea");
+const studioSubmitBtn = document.getElementById("studio-submit-btn");
+const thinkingText = document.getElementById("thinking-text");
+
+// Skills Store
+const skillsCatalogList = document.getElementById("skills-catalog-list");
+const skillsSearchInput = document.getElementById("skills-search-input");
 
 
-// ── Navigation ─────────────────────────────────────────────────────────────
-function switchView(viewName) {
-  currentView = viewName;
-  navChat.classList.toggle("active", viewName === "chat");
-  navProviders.classList.toggle("active", viewName === "providers");
+// ── View Switching ─────────────────────────────────────────────────────────
+function setView(viewName) {
+  state.currentView = viewName;
 
-  viewChat.classList.toggle("active", viewName === "chat");
-  viewProviders.classList.toggle("active", viewName === "providers");
+  navBtnNewChat.classList.toggle("active", viewName === "chat");
+  navBtnCustomize.classList.toggle("active", viewName === "customize");
 
-  if (viewName === "providers") {
-    loadProviders();
+  studioChatView.classList.toggle("active", viewName === "chat");
+  studioCustomizeView.classList.toggle("active", viewName === "customize");
+
+  closeAllPopovers();
+
+  if (viewName === "customize") {
+    renderSkillsCatalog();
   }
 }
 
-navChat.addEventListener("click", () => switchView("chat"));
-navProviders.addEventListener("click", () => switchView("providers"));
-
-btnBackToProviders.addEventListener("click", () => {
-  providerDetailView.classList.add("hidden");
-  providersListView.classList.remove("hidden");
-  loadProviders();
-});
+navBtnNewChat.addEventListener("click", () => setView("chat"));
+navBtnCustomize.addEventListener("click", () => setView("customize"));
 
 
-// ── Providers Management ───────────────────────────────────────────────────
-async function loadProviders() {
-  try {
-    const res = await fetch("/api/providers");
-    const data = await res.json();
-    const providers = data.providers || [];
+// ── Right Sidebar Toggle (Background tasks) ────────────────────────────────
+function toggleRightSidebar() {
+  state.rightSidebarOpen = !state.rightSidebarOpen;
+  rightSidebar.classList.toggle("collapsed", !state.rightSidebarOpen);
+}
+btnToggleRightSidebar.addEventListener("click", toggleRightSidebar);
+btnCloseRightSidebar.addEventListener("click", toggleRightSidebar);
 
-    // Update active badge in sidebar
-    const activeCount = providers.filter(p => p.isActive).length;
-    activeConnsBadge.textContent = activeCount;
 
-    // Render sidebar harness list
-    renderSidebarHarnesses(providers);
-
-    // Render providers grid
-    renderProvidersGrid(providers);
-  } catch (err) {
-    console.error("Failed to load providers:", err);
-  }
+// ── Popovers Management ────────────────────────────────────────────────────
+function closeAllPopovers() {
+  modelPopover.classList.add("hidden");
+  contextPopover.classList.add("hidden");
+  filterPopover.classList.add("hidden");
+  moreModelsSubmenu.classList.add("hidden");
 }
 
-function renderSidebarHarnesses(providers) {
-  sidebarHarnessList.innerHTML = "";
-  providers.forEach(p => {
-    const chip = document.createElement("div");
-    chip.className = "harness-nav-chip";
-    chip.innerHTML = `
-      <span class="status-dot-sm ${p.isActive ? "active" : "inactive"}"></span>
-      <span>${p.name}</span>
-    `;
-    chip.style.cursor = "pointer";
-    chip.addEventListener("click", () => {
-      switchView("providers");
-      openProviderDetail(p.id);
-    });
-    sidebarHarnessList.appendChild(chip);
-  });
-}
-
-function renderProvidersGrid(providers) {
-  providersGrid.innerHTML = "";
-  providers.forEach(p => {
-    const card = document.createElement("div");
-    card.className = "provider-card";
-    const iconChar = p.name.charAt(0);
-
-    card.innerHTML = `
-      <div class="prov-card-header">
-        <div class="prov-card-icon" style="color:${p.color}">${getProviderIcon(p.id)}</div>
-        <div>
-          <div class="prov-card-title">${p.name}</div>
-          <div class="prov-card-conns">${p.connectionsCount} connection${p.connectionsCount === 1 ? "" : "s"}</div>
-        </div>
-      </div>
-      <div class="prov-card-desc">${p.description}</div>
-      <div class="prov-card-footer">
-        <span class="prov-status-pill ${p.isActive ? "active" : "inactive"}">
-          ● ${p.isActive ? "Active" : "Not connected"}
-        </span>
-        <button class="btn-ghost-sm">Manage →</button>
-      </div>
-    `;
-
-    card.addEventListener("click", () => openProviderDetail(p.id));
-    providersGrid.appendChild(card);
-  });
-}
-
-function getProviderIcon(id) {
-  const icons = {
-    claude: "✳️",
-    antigravity: "⚡",
-    codex: "🔮",
-    kiro: "🚀",
-    ollama: "🦙",
-  };
-  return icons[id] || "🤖";
-}
-
-
-// ── Provider Detail View ───────────────────────────────────────────────────
-async function openProviderDetail(providerId) {
-  currentProviderId = providerId;
-  providersListView.classList.add("hidden");
-  providerDetailView.classList.remove("hidden");
-
-  try {
-    const res = await fetch(`/api/providers/${providerId}`);
-    const data = await res.json();
-
-    detailTitle.textContent = data.name;
-    detailAvatar.textContent = getProviderIcon(data.id);
-    detailAvatar.style.color = data.color;
-    detailConnsCount.textContent = `${data.connectionsCount} connection${data.connectionsCount === 1 ? "" : "s"}`;
-
-    // Risk Notice
-    if (data.riskNotice) {
-      detailRiskNotice.style.display = "flex";
-      detailRiskText.textContent = data.riskNotice;
-    } else {
-      detailRiskNotice.style.display = "none";
-    }
-
-    // Connections List
-    renderConnections(data.connections);
-
-    // Available Models
-    renderModels(data.models || []);
-
-  } catch (err) {
-    console.error("Failed to load provider detail:", err);
-  }
-}
-
-function renderConnections(connections) {
-  connectionsContainer.innerHTML = "";
-
-  if (!connections || connections.length === 0) {
-    connectionsContainer.innerHTML = `
-      <div class="empty-conns-state">
-        <div class="lock-icon">🔒</div>
-        <span>No connections yet</span>
-      </div>
-    `;
-    return;
-  }
-
-  connections.forEach(conn => {
-    const row = document.createElement("div");
-    row.className = "connection-item-row";
-    row.innerHTML = `
-      <div class="conn-left">
-        <span class="status-dot-sm ${conn.isActive ? "active" : "inactive"}"></span>
-        <div>
-          <div class="conn-name">${escHtml(conn.name || "OAuth Account")} ${conn.email ? `(${escHtml(conn.email)})` : ""}</div>
-          <div class="conn-priority">Priority: ${conn.priority || 1} &bull; ${conn.authType || "oauth"}</div>
-        </div>
-      </div>
-      <button class="btn-delete-conn" data-id="${conn.id}">Delete</button>
-    `;
-
-    row.querySelector(".btn-delete-conn").addEventListener("click", async (e) => {
-      e.stopPropagation();
-      if (!confirm("Are you sure you want to disconnect this account?")) return;
-      await fetch(`/api/connections/${conn.id}`, { method: "DELETE" });
-      openProviderDetail(currentProviderId);
-    });
-
-    connectionsContainer.appendChild(row);
-  });
-}
-
-function renderModels(models) {
-  modelsGrid.innerHTML = "";
-
-  if (!models || models.length === 0) {
-    modelsGrid.innerHTML = `
-      <div style="font-size:13px;color:var(--text-muted);grid-column:1/-1;padding:12px;">
-        Connect an account to discover available models for this provider.
-      </div>
-    `;
-    return;
-  }
-
-  models.forEach(m => {
-    const card = document.createElement("div");
-    card.className = "model-card";
-    card.innerHTML = `
-      <div class="model-card-left">
-        <span class="model-card-icon">🤖</span>
-        <span class="model-card-id" title="${m.id}">${m.id}</span>
-      </div>
-      <button class="copy-model-btn" title="Copy Model ID" data-id="${m.id}">📋</button>
-    `;
-
-    card.querySelector(".copy-model-btn").addEventListener("click", () => {
-      navigator.clipboard.writeText(m.id);
-      alert(`Copied model ID: ${m.id}`);
-    });
-
-    modelsGrid.appendChild(card);
-  });
-}
-
-
-// ── OAuth Connection Modal Flow (Matching Screenshot 1) ─────────────────────
-btnOpenAddConnection.addEventListener("click", async () => {
-  if (!currentProviderId) return;
-
-  modalProviderTitle.textContent = `Connect ${detailTitle.textContent}`;
-  oauthModal.classList.remove("hidden");
-  popupStatusText.textContent = "Waiting for popup authorization...";
-  modalCallbackInput.value = "";
-  btnConnectOAuth.disabled = true;
-
-  try {
-    // 1. Fetch OAuth URL & PKCE credentials
-    const res = await fetch(`/api/oauth/${currentProviderId}/authorize`);
-    const data = await res.json();
-    currentOAuthData = data;
-
-    modalAuthUrl.value = data.authUrl || "";
-
-    // 2. Open authorization popup
-    if (data.authUrl) {
-      window.open(data.authUrl, "oauthPopup", "width=600,height=750,menubar=no,toolbar=no");
-    }
-
-    // 3. Start polling to see if the callback was captured automatically
-    startOAuthPolling();
-
-  } catch (err) {
-    popupStatusText.textContent = "Failed to initiate OAuth flow: " + err.message;
+document.addEventListener("click", (e) => {
+  if (
+    !e.target.closest(".studio-popover") &&
+    !e.target.closest(".model-picker-trigger") &&
+    !e.target.closest(".token-meter-trigger") &&
+    !e.target.closest("#btn-project-filter")
+  ) {
+    closeAllPopovers();
   }
 });
 
-function startOAuthPolling() {
-  if (oauthPollingTimer) clearInterval(oauthPollingTimer);
+// 1. Model Picker Popover (Image 2)
+btnModelPicker.addEventListener("click", (e) => {
+  e.stopPropagation();
+  const isOpen = !modelPopover.classList.contains("hidden");
+  closeAllPopovers();
+  if (!isOpen) {
+    modelPopover.classList.remove("hidden");
+  }
+});
 
-  oauthPollingTimer = setInterval(async () => {
-    try {
-      const res = await fetch(`/api/providers/${currentProviderId}`);
-      const data = await res.json();
-      if (data.connectionsCount > 0) {
-        clearInterval(oauthPollingTimer);
-        closeOAuthModal();
-        openProviderDetail(currentProviderId);
+moreModelsTrigger.addEventListener("mouseenter", () => {
+  moreModelsSubmenu.classList.remove("hidden");
+});
+
+document.querySelectorAll(".popover-item[data-model]").forEach((item) => {
+  item.addEventListener("click", () => {
+    const model = item.dataset.model;
+    const name = item.querySelector(".item-name").textContent.split("<")[0].trim();
+    state.activeModel = name;
+    currentActiveModelLabel.textContent = name;
+    closeAllPopovers();
+    updateThinkingBanner(`Ready with ${name}`);
+  });
+});
+
+fastModeToggle.addEventListener("change", (e) => {
+  state.isFastMode = e.target.checked;
+});
+
+// 2. Context Window & Quota Popover (Image 3)
+btnContextInspector.addEventListener("click", (e) => {
+  e.stopPropagation();
+  const isOpen = !contextPopover.classList.contains("hidden");
+  closeAllPopovers();
+  if (!isOpen) {
+    contextPopover.classList.remove("hidden");
+  }
+});
+
+// 3. Project Filter Popover (Image 4)
+btnProjectFilter.addEventListener("click", (e) => {
+  e.stopPropagation();
+  const isOpen = !filterPopover.classList.contains("hidden");
+  closeAllPopovers();
+  if (!isOpen) {
+    const rect = btnProjectFilter.getBoundingClientRect();
+    filterPopover.style.top = `${rect.bottom + 6}px`;
+    filterPopover.style.left = `${rect.left}px`;
+    filterPopover.classList.remove("hidden");
+  }
+});
+
+
+// ── Skills Store Catalog (Image 5) ─────────────────────────────────────────
+function renderSkillsCatalog(filterText = "") {
+  skillsCatalogList.innerHTML = "";
+  const query = filterText.toLowerCase();
+
+  const filtered = state.skillsCatalog.filter(s =>
+    s.name.toLowerCase().includes(query) || s.desc.toLowerCase().includes(query)
+  );
+
+  filtered.forEach(skill => {
+    const isAdded = state.addedSkills.has(skill.id);
+    const card = document.createElement("div");
+    card.className = "skill-card-item";
+    card.innerHTML = `
+      <div class="skill-card-left">
+        <div class="skill-icon-wrap">📄</div>
+        <div class="skill-info">
+          <div class="skill-title-row">
+            <span class="skill-name">${skill.name}</span>
+            <span class="skill-author">${skill.author}</span>
+          </div>
+          <div class="skill-desc">${skill.desc}</div>
+        </div>
+      </div>
+      <button class="btn-add-skill ${isAdded ? 'added' : ''}" data-id="${skill.id}">
+        ${isAdded ? '✔ Added' : 'Add'}
+      </button>
+    `;
+
+    card.querySelector(".btn-add-skill").addEventListener("click", function() {
+      if (state.addedSkills.has(skill.id)) {
+        state.addedSkills.delete(skill.id);
+        this.classList.remove("added");
+        this.textContent = "Add";
+      } else {
+        state.addedSkills.add(skill.id);
+        this.classList.add("added");
+        this.textContent = "✔ Added";
       }
-    } catch {}
-  }, 2000);
-}
-
-function closeOAuthModal() {
-  oauthModal.classList.add("hidden");
-  if (oauthPollingTimer) clearInterval(oauthPollingTimer);
-  currentOAuthData = null;
-}
-
-modalCloseBtn.addEventListener("click", closeOAuthModal);
-btnCancelOAuth.addEventListener("click", closeOAuthModal);
-
-btnCopyAuthUrl.addEventListener("click", () => {
-  if (modalAuthUrl.value) {
-    navigator.clipboard.writeText(modalAuthUrl.value);
-    btnCopyAuthUrl.textContent = "Copied!";
-    setTimeout(() => { btnCopyAuthUrl.textContent = "Copy"; }, 1800);
-  }
-});
-
-// Enable connect button when callback URL is pasted
-modalCallbackInput.addEventListener("input", () => {
-  const val = modalCallbackInput.value.trim();
-  btnConnectOAuth.disabled = !val.includes("code=");
-});
-
-btnConnectOAuth.addEventListener("click", async () => {
-  const callbackVal = modalCallbackInput.value.trim();
-  if (!callbackVal || !currentOAuthData) return;
-
-  try {
-    const url = new URL(callbackVal);
-    const code = url.searchParams.get("code");
-    const state = url.searchParams.get("state") || currentOAuthData.state;
-
-    if (!code) {
-      alert("No authorization code found in the callback URL.");
-      return;
-    }
-
-    btnConnectOAuth.disabled = true;
-    btnConnectOAuth.textContent = "Connecting...";
-
-    const res = await fetch(`/api/oauth/${currentProviderId}/exchange`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        code: code,
-        codeVerifier: currentOAuthData.codeVerifier,
-        state: state,
-        redirectUri: currentOAuthData.redirectUri || "http://localhost:20128/callback",
-      }),
     });
 
-    const result = await res.json();
-    if (result.success || res.ok) {
-      closeOAuthModal();
-      openProviderDetail(currentProviderId);
-      loadProviders();
-    } else {
-      alert("Token exchange failed: " + (result.detail || result.error || "Unknown error"));
-      btnConnectOAuth.disabled = false;
-      btnConnectOAuth.textContent = "Connect";
-    }
-  } catch (err) {
-    alert("Invalid callback URL format: " + err.message);
-    btnConnectOAuth.disabled = false;
-    btnConnectOAuth.textContent = "Connect";
-  }
+    skillsCatalogList.appendChild(card);
+  });
+}
+
+skillsSearchInput?.addEventListener("input", (e) => {
+  renderSkillsCatalog(e.target.value);
 });
+
+
+// ── Interactive Decision Chips Handler (Image 1) ───────────────────────────
+function setupDecisionChips() {
+  document.querySelectorAll(".decision-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      const responseText = chip.dataset.response || chip.textContent.trim();
+      sendUserMessage(responseText);
+    });
+  });
+}
+setupDecisionChips();
 
 
 // ── WebSocket Multi-Agent Chat ─────────────────────────────────────────────
+let ws = null;
+
 function initWebSocket() {
   const proto = location.protocol === "https:" ? "wss" : "ws";
   ws = new WebSocket(`${proto}://${location.host}/ws/chat`);
 
   ws.onopen = () => {
-    document.getElementById("gateway-status-text").textContent = "Router: Connected";
+    updateThinkingBanner("Connected & Ready");
   };
 
   ws.onmessage = ({ data }) => {
@@ -395,7 +254,7 @@ function initWebSocket() {
   };
 
   ws.onclose = () => {
-    document.getElementById("gateway-status-text").textContent = "Router: Reconnecting…";
+    updateThinkingBanner("Reconnecting…");
     setTimeout(initWebSocket, 2500);
   };
 }
@@ -403,186 +262,161 @@ function initWebSocket() {
 function handleChatEvent(ev) {
   switch (ev.event) {
     case "routing":
-      showRoutingIndicator(ev);
+      updateThinkingBanner(`Routing to ${ev.targets.join(", ")}…`);
+      showLiveThinkingIndicator(ev.targets[0]);
       break;
 
     case "response":
-      removeTypingIndicator(ev.harness);
-      appendChatMessage("assistant", ev.harness, ev.model, ev.content, ev.tokens);
+      removeLiveThinkingIndicator();
+      appendAssistantMessage(ev.harness, ev.model, ev.content);
+      updateThinkingBanner(`Ready · Last response: ${ev.tokens?.output || 0} tokens`);
       break;
 
     case "debate_round_start":
-      appendSystemBanner(`🎭 Debate — Round ${ev.round} of ${ev.total}`);
+      updateThinkingBanner(`🎭 Debate Round ${ev.round} of ${ev.total}…`);
       break;
 
     case "debate_response":
-      removeTypingIndicator(ev.harness);
-      appendChatMessage("assistant", ev.harness, ev.model, ev.content);
+      appendAssistantMessage(ev.harness, ev.model, ev.content);
       break;
 
     case "debate_complete":
-      appendSystemBanner(`✅ Debate concluded after ${ev.rounds} rounds`);
+      updateThinkingBanner(`✅ Debate complete (${ev.rounds} rounds)`);
       break;
 
     case "error":
-      removeTypingIndicator(ev.harness);
-      appendErrorBanner(ev.harness, ev.message);
+      removeLiveThinkingIndicator();
+      appendAssistantMessage("error", "system", `❌ ${ev.message}`);
+      updateThinkingBanner("Error occurred");
       break;
 
     case "done":
-      setChatLoading(false);
+      setSubmitting(false);
       break;
   }
 }
 
-function showRoutingIndicator(ev) {
-  ev.targets.forEach(t => {
-    if (t !== "all") showTypingIndicator(t);
-  });
+function sendUserMessage(text) {
+  if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+  // Append user message
+  appendUserMessage(text);
+  setSubmitting(true);
+  updateThinkingBanner("Thinking… ⏱️");
+
+  ws.send(JSON.stringify({ message: text }));
 }
 
-function appendChatMessage(role, harness, model, content, tokens) {
-  const isUser = role === "user";
+function appendUserMessage(text) {
   const wrap = document.createElement("div");
-  wrap.className = `chat-msg ${isUser ? "user" : "assistant"}`;
+  wrap.className = "agent-msg-bubble user-bubble";
+  wrap.innerHTML = `
+    <div style="background:rgba(255,255,255,0.06);padding:12px 18px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);align-self:flex-end;color:#fff;">
+      ${escHtml(text)}
+    </div>
+  `;
+  wrap.style.alignItems = "flex-end";
+  messagesContainer.appendChild(wrap);
+  scrollChatBottom();
+}
 
-  let tagHTML = "";
-  if (isUser) {
-    tagHTML = `<span class="agent-tag user">You</span>`;
-  } else {
-    tagHTML = `
-      <span class="agent-tag ${harness}">${harness.toUpperCase()}</span>
-      <span class="agent-model-name">${model || ""}</span>
+function appendAssistantMessage(harness, model, content) {
+  const bubble = document.createElement("div");
+  bubble.className = "agent-msg-bubble";
+
+  let renderedContent = formatMarkdown(content);
+
+  // If content contains a decision prompt question, automatically inject clickable decision chips!
+  if (content.includes("می‌خوای") || content.includes("چیکار کنم") || content.includes("کدوم مسیر")) {
+    renderedContent += `
+      <div class="interactive-decision-box">
+        <div class="decision-prompt-title">می‌خوای چیکار کنم؟</div>
+        <div class="decision-options-group">
+          <button class="decision-chip" data-response="تایید و اجرای این مسیر"><span class="chip-text">✔ بله، همین مسیر رو ادامه بده</span></button>
+          <button class="decision-chip" data-response="بررسی گزینه‌های جایگزین"><span class="chip-text">🔍 گزینه‌های جایگزین رو بررسی کن</span></button>
+        </div>
+      </div>
     `;
   }
 
-  let tokenHTML = "";
-  if (tokens) {
-    totalTokens.input += tokens.input;
-    totalTokens.output += tokens.output;
-    tokenSummary.textContent = `Tokens: ↑${totalTokens.input.toLocaleString()} ↓${totalTokens.output.toLocaleString()}`;
+  bubble.innerHTML = `
+    <div class="agent-content-area">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:11.5px;color:var(--text-muted);">
+        <span style="color:var(--claude-accent);font-weight:600;">${harness.toUpperCase()}</span>
+        <span>&bull;</span>
+        <span>${model || 'Claude Code Studio'}</span>
+      </div>
+      ${renderedContent}
+    </div>
+  `;
+
+  messagesContainer.appendChild(bubble);
+  setupDecisionChips();
+  scrollChatBottom();
+}
+
+function showLiveThinkingIndicator(target) {
+  let indicator = document.getElementById("live-stream-indicator");
+  if (!indicator) {
+    indicator = document.createElement("div");
+    indicator.id = "live-stream-indicator";
+    indicator.className = "agent-msg-bubble";
+    indicator.innerHTML = `
+      <div class="tool-execution-drawer" style="padding:10px 14px;display:flex;align-items:center;gap:10px;">
+        <span class="spark-icon">✨</span>
+        <span style="font-size:12.5px;color:var(--text-sub);">Thinking with ${target}…</span>
+      </div>
+    `;
+    messagesContainer.appendChild(indicator);
+    scrollChatBottom();
   }
-
-  wrap.innerHTML = `
-    <div class="msg-tag-row">${tagHTML}</div>
-    <div class="chat-bubble">${formatMarkdown(content)}</div>
-  `;
-
-  chatMessages.appendChild(wrap);
-  scrollChatBottom();
 }
 
-function appendSystemBanner(text) {
-  const banner = document.createElement("div");
-  banner.className = "chat-msg assistant";
-  banner.innerHTML = `
-    <div class="msg-tag-row"><span class="agent-tag system">SYSTEM</span></div>
-    <div class="chat-bubble" style="font-size:12.5px;color:var(--text-muted);">${escHtml(text)}</div>
-  `;
-  chatMessages.appendChild(banner);
-  scrollChatBottom();
+function removeLiveThinkingIndicator() {
+  document.getElementById("live-stream-indicator")?.remove();
 }
 
-function appendErrorBanner(harness, msg) {
-  const banner = document.createElement("div");
-  banner.className = "chat-msg assistant";
-  banner.innerHTML = `
-    <div class="msg-tag-row"><span class="agent-tag system">ERROR</span></div>
-    <div class="chat-bubble" style="color:#d32f2f;font-size:13px;">
-      ❌ <strong>${harness}</strong>: ${escHtml(msg)}
-    </div>
-  `;
-  chatMessages.appendChild(banner);
-  scrollChatBottom();
-}
-
-function showTypingIndicator(harness) {
-  if (typingIndicators[harness]) return;
-
-  const el = document.createElement("div");
-  el.className = "chat-msg assistant typing-bubble";
-  el.innerHTML = `
-    <div class="msg-tag-row"><span class="agent-tag ${harness}">${harness.toUpperCase()}</span></div>
-    <div class="chat-bubble">
-      <span class="typing-dot"></span>
-      <span class="typing-dot"></span>
-      <span class="typing-dot"></span>
-    </div>
-  `;
-
-  chatMessages.appendChild(el);
-  typingIndicators[harness] = el;
-  scrollChatBottom();
-}
-
-function removeTypingIndicator(harness) {
-  if (typingIndicators[harness]) {
-    typingIndicators[harness].remove();
-    delete typingIndicators[harness];
+function updateThinkingBanner(text) {
+  if (thinkingText) {
+    thinkingText.textContent = text;
   }
 }
 
 function scrollChatBottom() {
-  chatMessages.scrollTop = chatMessages.scrollHeight;
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
-function setChatLoading(loading) {
-  chatSendBtn.disabled = loading;
-  chatTextarea.disabled = loading;
-  if (!loading) chatTextarea.focus();
+function setSubmitting(isSubmitting) {
+  studioSubmitBtn.disabled = isSubmitting;
+  studioTextarea.disabled = isSubmitting;
+  if (!isSubmitting) studioTextarea.focus();
 }
 
-// ── Submit Chat ────────────────────────────────────────────────────────────
-chatForm.addEventListener("submit", (e) => {
+// ── Submit Input Form ──────────────────────────────────────────────────────
+studioChatForm.addEventListener("submit", (e) => {
   e.preventDefault();
-  const text = chatTextarea.value.trim();
-  if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+  const text = studioTextarea.value.trim();
+  if (!text) return;
 
-  // Remove welcome banner on first chat
-  document.querySelector(".welcome-banner")?.remove();
-
-  appendChatMessage("user", "", "", text);
-  setChatLoading(true);
-
-  ws.send(JSON.stringify({ message: text }));
-  chatTextarea.value = "";
-  chatTextarea.style.height = "auto";
+  sendUserMessage(text);
+  studioTextarea.value = "";
+  studioTextarea.style.height = "auto";
 });
 
-// Shift+Enter newline, Enter send
-chatTextarea.addEventListener("keydown", (e) => {
+studioTextarea.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
-    chatForm.requestSubmit();
+    studioChatForm.requestSubmit();
   }
 });
 
-// Auto-expand textarea
-chatTextarea.addEventListener("input", () => {
-  chatTextarea.style.height = "auto";
-  chatTextarea.style.height = Math.min(chatTextarea.scrollHeight, 160) + "px";
-});
-
-// Clickable chip shortcuts
-document.querySelectorAll(".cmd-chip").forEach(chip => {
-  chip.addEventListener("click", () => {
-    chatTextarea.value = chip.dataset.cmd;
-    chatTextarea.focus();
-  });
-});
-
-// Clear history
-btnClearHistory.addEventListener("click", async () => {
-  if (!confirm("Are you sure you want to clear all conversation history?")) return;
-  await fetch("/api/history", { method: "DELETE" });
-  chatMessages.innerHTML = "";
-  totalTokens = { input: 0, output: 0 };
-  tokenSummary.textContent = "";
-  appendSystemBanner("Conversation history cleared.");
+studioTextarea.addEventListener("input", () => {
+  studioTextarea.style.height = "auto";
+  studioTextarea.style.height = Math.min(studioTextarea.scrollHeight, 180) + "px";
 });
 
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
+// ── Markdown Formatter ─────────────────────────────────────────────────────
 function formatMarkdown(text) {
   return escHtml(text)
     .replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
@@ -600,6 +434,5 @@ function escHtml(str) {
 }
 
 
-// ── Initialization ──────────────────────────────────────────────────────────
+// ── Initialize ─────────────────────────────────────────────────────────────
 initWebSocket();
-loadProviders();
