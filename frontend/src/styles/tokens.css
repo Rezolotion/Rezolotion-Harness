@@ -1,0 +1,58 @@
+:root {
+  /* Dark Mode as Default */
+  --bg-base: oklch(0.14 0.005 260);
+  --bg-surface: oklch(0.18 0.006 260);
+  --bg-elevated: oklch(0.22 0.007 260);
+
+  --border-subtle: oklch(1 0 0 / 0.08);
+  --border-hover: oklch(1 0 0 / 0.15);
+  --border-active: oklch(1 0 0 / 0.25);
+
+  --fg: oklch(0.95 0.005 260);
+  --fg-muted: oklch(0.68 0.01 260);
+  --fg-subtle: oklch(0.48 0.01 260);
+
+  --accent: oklch(0.65 0.20 250);
+  --accent-fg: oklch(0.98 0 0);
+  --accent-muted: oklch(0.65 0.20 250 / 0.15);
+
+  --destructive: oklch(0.62 0.22 25);
+  --destructive-fg: oklch(0.98 0 0);
+
+  /* Agent Status Dots */
+  --agent-claude: oklch(0.68 0.16 45);
+  --agent-gemini: oklch(0.72 0.18 150);
+  --agent-deepseek: oklch(0.62 0.18 250);
+  --agent-codex: oklch(0.70 0.15 160);
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  /* Shadows (Floating overlays only) */
+  --shadow-overlay: 0 12px 32px -4px rgba(0, 0, 0, 0.45), 0 4px 12px -2px rgba(0, 0, 0, 0.25);
+}
+
+.light, [data-theme="light"] {
+  --bg-base: oklch(0.98 0.003 260);
+  --bg-surface: oklch(0.95 0.004 260);
+  --bg-elevated: oklch(1 0 0);
+
+  --border-subtle: oklch(0 0 0 / 0.08);
+  --border-hover: oklch(0 0 0 / 0.15);
+  --border-active: oklch(0 0 0 / 0.25);
+
+  --fg: oklch(0.15 0.005 260);
+  --fg-muted: oklch(0.45 0.01 260);
+  --fg-subtle: oklch(0.65 0.01 260);
+
+  --accent: oklch(0.58 0.22 250);
+  --accent-fg: oklch(0.98 0 0);
+  --accent-muted: oklch(0.58 0.22 250 / 0.12);
+
+  --destructive: oklch(0.55 0.22 25);
+  --destructive-fg: oklch(0.98 0 0);
+
+  --shadow-overlay: 0 12px 32px -4px rgba(0, 0, 0, 0.10), 0 4px 12px -2px rgba(0, 0, 0, 0.06);
+}

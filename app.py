@@ -31,6 +31,21 @@ static_dir = os.path.join(ui_dir, "static")
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
+frontend_dist = os.path.join(os.path.dirname(__file__), "frontend", "dist")
+if os.path.exists(frontend_dist):
+    assets_dir = os.path.join(frontend_dist, "assets")
+    if os.path.exists(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="frontend-assets")
+
+
+@app.get("/kitchen-sink", response_class=HTMLResponse)
+async def kitchen_sink():
+    dist_html = os.path.join(frontend_dist, "index.html")
+    if os.path.exists(dist_html):
+        with open(dist_html, "r", encoding="utf-8") as f:
+            return f.read()
+    return HTMLResponse("<h1>Frontend not built. Run npm run build in frontend/</h1>", status_code=404)
+
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
