@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rezolotion Harness</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <!-- ── Sidebar ─────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <span class="logo">⚡ Rezolotion</span>
+      <span class="version">v0.1.0</span>
+    </div>
+
+    <div class="harness-list" id="harness-list">
+      <!-- Populated by JS -->
+    </div>
+
+    <div class="sidebar-footer">
+      <button id="btn-clear" class="btn-ghost">🗑 Clear History</button>
+      <a href="/api/health" target="_blank" class="btn-ghost">🔍 Health</a>
+    </div>
+  </aside>
+
+  <!-- ── Main Chat ───────────────────────────────────────────── -->
+  <main class="chat-area">
+    <div class="chat-header">
+      <h1>AI Team Chat</h1>
+      <div class="hint">
+        Use <code>@claude</code>, <code>@agy</code>, <code>@all</code>, or
+        <code>@debate @claude @agy topic</code>
+      </div>
+    </div>
+
+    <div class="messages" id="messages">
+      <div class="welcome-msg">
+        <p>👋 Welcome to <strong>Rezolotion Harness</strong></p>
+        <p>You are talking to a team of AI harnesses. Use <code>@mentions</code> to route your messages.</p>
+        <ul>
+          <li><code>@claude</code> → Claude Code</li>
+          <li><code>@agy</code> → AntiGravity</li>
+          <li><code>@all</code> → Broadcast to everyone</li>
+          <li><code>@debate @claude @agy</code> → Start a debate</li>
+        </ul>
+      </div>
+    </div>
+
+    <form class="input-area" id="chat-form">
+      <textarea
+        id="message-input"
+        placeholder="@claude write a function… or @debate @claude @agy should we use Redis?"
+        rows="2"
+        autocomplete="off"
+      ></textarea>
+      <button type="submit" id="send-btn">Send ↵</button>
+    </form>
+  </main>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
