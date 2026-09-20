@@ -9,6 +9,8 @@ from enum import Enum
 
 class HarnessID(str, Enum):
     CLAUDE = "claude"
+    DEEPSEEK = "deepseek"
+    CHATGPT = "chatgpt"
     AGY = "agy"
     CODEX = "codex"
     HERMES = "hermes"

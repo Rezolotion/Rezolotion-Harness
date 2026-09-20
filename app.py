@@ -44,24 +44,46 @@ async def root():
 PROVIDERS_METADATA = {
     "claude": {
         "id": "claude",
-        "name": "Claude Code (Native CLI)",
+        "name": "Anthropic Claude (Native CLI)",
         "category": "native",
         "color": "#e57c5c",
         "icon": "claude",
         "description": "Official installed Claude Code CLI binary. 100% authentic session, zero ban risk.",
-        "riskNotice": "🛡️ Zero Ban Risk: Running via official local Claude Code binary (~/.local/bin/claude).",
+        "riskNotice": "Zero Ban Risk: Running via official local Claude Code binary (~/.local/bin/claude).",
         "defaultModel": "claude-3-7-sonnet",
         "isNative": True,
     },
+    "deepseek": {
+        "id": "deepseek",
+        "name": "DeepSeek AI",
+        "category": "cloud",
+        "color": "#4d6bfe",
+        "icon": "deepseek",
+        "description": "DeepSeek R1 Reasoner & V3 MoE 671B open weights with deep math and reasoning.",
+        "riskNotice": "Direct API bridge with uncensored deep thinking capabilities.",
+        "defaultModel": "deepseek-reasoner-r1",
+        "isNative": False,
+    },
+    "chatgpt": {
+        "id": "chatgpt",
+        "name": "OpenAI ChatGPT",
+        "category": "cloud",
+        "color": "#10a37f",
+        "icon": "chatgpt",
+        "description": "OpenAI GPT-4o and o3-mini models with omni vision, audio and reasoning.",
+        "riskNotice": "Official OpenAI session with ultra-high context support.",
+        "defaultModel": "chatgpt-4o",
+        "isNative": False,
+    },
     "antigravity": {
         "id": "antigravity",
-        "name": "AntiGravity",
+        "name": "Google AntiGravity",
         "category": "oauth",
-        "color": "#4db6ac",
+        "color": "#4285f4",
         "icon": "antigravity",
-        "description": "Google AntiGravity with Gemini Pro and advanced agentic capabilities.",
+        "description": "Google AntiGravity with Gemini Pro 2M context and agentic skills.",
         "riskNotice": "Official Google Session for AntiGravity IDE and models.",
-        "defaultModel": "ag/gemini-3.8-flash-high",
+        "defaultModel": "gemini-2.5-pro",
         "isNative": True,
     },
     "codex": {
@@ -75,24 +97,13 @@ PROVIDERS_METADATA = {
         "defaultModel": "codex/gpt-4o",
         "isNative": False,
     },
-    "kiro": {
-        "id": "kiro",
-        "name": "Kiro AI",
-        "category": "oauth",
-        "color": "#ff9f0a",
-        "icon": "kiro",
-        "description": "AWS Builder ID with Claude Sonnet and agentic capabilities.",
-        "riskNotice": "",
-        "defaultModel": "kr/claude-sonnet-4.5",
-        "isNative": False,
-    },
     "ollama": {
         "id": "ollama",
         "name": "Ollama / Local",
         "category": "local",
         "color": "#30d158",
         "icon": "ollama",
-        "description": "Locally hosted open-source models with high speed and zero token cost.",
+        "description": "Locally hosted open-source models (Llama 3.3, Qwen 2.5) with zero token cost.",
         "riskNotice": "",
         "defaultModel": "ollama/qwen3.5",
         "isNative": True,
@@ -319,18 +330,32 @@ async def execute_harness(
 
     # Determine model
     if requested_model:
-        if "opus" in requested_model.lower():
+        req_lower = requested_model.lower()
+        if "deepseek" in req_lower or "r1" in req_lower:
+            model_name = "deepseek/deepseek-r1"
+        elif "v3" in req_lower:
+            model_name = "deepseek/deepseek-chat"
+        elif "chatgpt" in req_lower or "gpt-4" in req_lower or "o3" in req_lower or "o1" in req_lower:
+            model_name = "openai/gpt-4o"
+        elif "opus" in req_lower:
             model_name = "cc/claude-opus-4-1"
-        elif "sonnet" in requested_model.lower():
+        elif "sonnet" in req_lower:
             model_name = "cc/claude-sonnet-5"
-        elif "gemini" in requested_model.lower() or "agy" in requested_model.lower():
+        elif "gemini" in req_lower or "agy" in req_lower:
             model_name = "ag/gemini-3.8-flash-high"
-        elif "codex" in requested_model.lower() or "gpt" in requested_model.lower():
+        elif "codex" in req_lower:
             model_name = "codex/gpt-4o"
         else:
             model_name = requested_model
     else:
-        model_name = "ag/gemini-3.8-flash-high" if harness_id == "agy" else "cc/claude-sonnet-5"
+        if harness_id == "deepseek":
+            model_name = "deepseek/deepseek-r1"
+        elif harness_id == "chatgpt":
+            model_name = "openai/gpt-4o"
+        elif harness_id == "agy":
+            model_name = "ag/gemini-3.8-flash-high"
+        else:
+            model_name = "cc/claude-sonnet-5"
 
     messages = [
         {"role": "system", "content": f"You are {harness_id.upper()} in Rezolotion Harness. Answer concisely."},

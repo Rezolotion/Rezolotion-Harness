@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Rezolotion Harness — Studio Edition</title>
-  <link rel="stylesheet" href="/static/css/style.css" />
+  <link rel="stylesheet" href="/static/css/style.css?v=4.0" />
 </head>
 <body>
 
@@ -87,32 +87,50 @@
         <div class="harness-stack">
           <!-- Claude Code -->
           <div class="harness-row active" data-harness="claude">
-            <span class="h-dot claude-dot"></span>
+            <div class="h-avatar-box claude-avatar">
+              <img src="/static/claude.svg" width="16" height="16" alt="Claude" />
+            </div>
             <div class="h-info">
               <span class="h-name">Claude Code</span>
-              <span class="h-tag">Native CLI (~/.local/bin/claude)</span>
+              <span class="h-tag">Native CLI (3.7 Sonnet)</span>
             </div>
-            <span class="h-status-pill">Safe</span>
+            <span class="h-status-pill safe">Official</span>
+          </div>
+
+          <!-- DeepSeek -->
+          <div class="harness-row active" data-harness="deepseek">
+            <div class="h-avatar-box deepseek-avatar">
+              <img src="/static/deepseek-icon.svg" width="16" height="16" alt="DeepSeek" />
+            </div>
+            <div class="h-info">
+              <span class="h-name">DeepSeek</span>
+              <span class="h-tag">R1 Reasoner &amp; V3</span>
+            </div>
+            <span class="h-status-pill deepseek">Active</span>
+          </div>
+
+          <!-- ChatGPT -->
+          <div class="harness-row active" data-harness="chatgpt">
+            <div class="h-avatar-box chatgpt-avatar">
+              <img src="/static/chatgpt.svg" width="16" height="16" alt="ChatGPT" style="filter:invert(1);" />
+            </div>
+            <div class="h-info">
+              <span class="h-name">ChatGPT</span>
+              <span class="h-tag">OpenAI GPT-4o &amp; o3</span>
+            </div>
+            <span class="h-status-pill gpt">Ready</span>
           </div>
 
           <!-- AntiGravity -->
           <div class="harness-row active" data-harness="antigravity">
-            <span class="h-dot agy-dot"></span>
+            <div class="h-avatar-box agy-avatar">
+              <img src="/static/gemini-sparkle.svg" width="16" height="16" alt="AntiGravity" />
+            </div>
             <div class="h-info">
               <span class="h-name">AntiGravity</span>
-              <span class="h-tag">Google Gemini Session</span>
+              <span class="h-tag">Google Gemini 2.5 Pro</span>
             </div>
-            <span class="h-status-pill">Ready</span>
-          </div>
-
-          <!-- OpenAI Codex -->
-          <div class="harness-row" data-harness="codex">
-            <span class="h-dot codex-dot"></span>
-            <div class="h-info">
-              <span class="h-name">OpenAI Codex</span>
-              <span class="h-tag">Developer Models</span>
-            </div>
-            <span class="h-status-pill idle">Standby</span>
+            <span class="h-status-pill agy">2M Live</span>
           </div>
         </div>
       </div>
@@ -121,9 +139,11 @@
       <div class="sidebar-section">
         <div class="section-title">Routing Commands</div>
         <div class="quick-hints">
-          <div class="hint-item" data-insert="@claude "><code>@claude</code> Claude Code (Native)</div>
-          <div class="hint-item" data-insert="@agy "><code>@agy</code> AntiGravity</div>
-          <div class="hint-item" data-insert="@debate @claude @agy "><code>@debate</code> Multi-Agent Debate</div>
+          <div class="hint-item" data-insert="@claude "><img src="/static/claude.svg" width="13" height="13" /> <code>@claude</code> Claude Code (Native)</div>
+          <div class="hint-item" data-insert="@deepseek "><img src="/static/deepseek-icon.svg" width="13" height="13" /> <code>@deepseek</code> DeepSeek R1 (Reasoner)</div>
+          <div class="hint-item" data-insert="@chatgpt "><img src="/static/chatgpt.svg" width="13" height="13" style="filter:invert(1);" /> <code>@chatgpt</code> ChatGPT (GPT-4o)</div>
+          <div class="hint-item" data-insert="@agy "><img src="/static/gemini-sparkle.svg" width="13" height="13" /> <code>@agy</code> AntiGravity (Gemini Pro)</div>
+          <div class="hint-item" data-insert="@debate @claude @deepseek @agy "><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ff6b00" stroke-width="2"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg> <code>@debate</code> Multi-Model Debate</div>
           <div class="hint-item" data-insert="@all "><code>@all</code> Broadcast to All</div>
         </div>
       </div>
@@ -165,14 +185,10 @@
           <div class="topbar-meta">
             <h1 class="topbar-heading">Team Orchestrator</h1>
             <div class="active-agents-pills">
-              <span class="agent-pill claude">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="#f28b6d"><path d="m12 1.5 2.6 6.5 6.9 1-5.3 4.6 1.7 6.8-5.9-3.7-5.9 3.7 1.7-6.8-5.3-4.6 6.9-1Z"/></svg>
-                Claude Code (Native)
-              </span>
-              <span class="agent-pill agy">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="#34d399"><path d="M12 2C12 7.5 7.5 12 2 12C7.5 12 12 16.5 12 22C12 16.5 16.5 12 22 12C16.5 12 12 7.5 12 2Z"/></svg>
-                AntiGravity
-              </span>
+              <span class="agent-pill claude"><img src="/static/claude.svg" width="12" height="12" /> Claude Code</span>
+              <span class="agent-pill deepseek"><img src="/static/deepseek-icon.svg" width="12" height="12" /> DeepSeek R1</span>
+              <span class="agent-pill chatgpt"><img src="/static/chatgpt.svg" width="12" height="12" style="filter:invert(1);" /> ChatGPT 4o</span>
+              <span class="agent-pill agy"><img src="/static/gemini-sparkle.svg" width="12" height="12" /> AntiGravity</span>
             </div>
           </div>
 
@@ -205,13 +221,15 @@
               </div>
               <div>
                 <h2>Rezolotion Studio Meta-Harness</h2>
-                <p>Unified AI orchestrating official native Claude Code and Google AntiGravity with shared SQLite memory and zero ban risk.</p>
+                <p>Unified AI orchestrating official native Claude Code, DeepSeek, ChatGPT and Google AntiGravity with shared SQLite memory and zero ban risk.</p>
               </div>
             </div>
             <div class="welcome-chips">
               <button class="chip-cmd" data-cmd="@claude Review codebase architecture"><code>@claude</code> Review Codebase</button>
-              <button class="chip-cmd" data-cmd="@agy Optimize query execution plan"><code>@agy</code> Optimize Queries</button>
-              <button class="chip-cmd" data-cmd="@debate @claude @agy Best way to connect MCP servers?"><code>@debate</code> Debate Architecture</button>
+              <button class="chip-cmd" data-cmd="@deepseek Analyze optimal time complexity"><code>@deepseek</code> DeepSeek R1</button>
+              <button class="chip-cmd" data-cmd="@chatgpt Write comprehensive test coverage"><code>@chatgpt</code> ChatGPT 4o</button>
+              <button class="chip-cmd" data-cmd="@agy Optimize query execution plan"><code>@agy</code> AntiGravity</button>
+              <button class="chip-cmd" data-cmd="@debate @claude @deepseek @agy Best way to connect MCP servers?"><code>@debate</code> Model Debate</button>
             </div>
           </div>
         </div>
@@ -221,8 +239,10 @@
           <!-- Slash Commands Popover -->
           <div class="slash-menu hidden" id="slash-menu">
             <div class="slash-item" data-cmd="@claude "><span class="slash-badge">@claude</span> Direct message to Claude Code (Native)</div>
+            <div class="slash-item" data-cmd="@deepseek "><span class="slash-badge">@deepseek</span> Direct message to DeepSeek R1 (Reasoner)</div>
+            <div class="slash-item" data-cmd="@chatgpt "><span class="slash-badge">@chatgpt</span> Direct message to ChatGPT (GPT-4o)</div>
             <div class="slash-item" data-cmd="@agy "><span class="slash-badge">@agy</span> Direct message to AntiGravity</div>
-            <div class="slash-item" data-cmd="@debate @claude @agy "><span class="slash-badge">@debate</span> Start multi-agent debate</div>
+            <div class="slash-item" data-cmd="@debate @claude @deepseek @agy "><span class="slash-badge">@debate</span> Start multi-agent debate</div>
             <div class="slash-item" data-cmd="@all "><span class="slash-badge">@all</span> Send to all connected harnesses</div>
             <div class="slash-item" data-cmd="/clear"><span class="slash-badge">/clear</span> Clear chat history</div>
           </div>
@@ -230,31 +250,47 @@
           <!-- Model Selector Dropdown Popover -->
           <div class="model-picker-menu hidden" id="model-picker-menu">
             <div class="picker-header">Select Active Model</div>
-            <div class="picker-option active" data-model="Opus 5" data-harness="claude">
-              <div class="picker-opt-title">Opus 5 <span class="opt-badge native">Ultra</span></div>
-              <div class="picker-opt-sub">Deep reasoning &amp; architectural mastery</div>
-            </div>
-            <div class="picker-option" data-model="Claude 3.7 Sonnet" data-harness="claude">
-              <div class="picker-opt-title">Claude 3.7 Sonnet <span class="opt-badge native">Native CLI</span></div>
-              <div class="picker-opt-sub">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:3px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>100% Zero Ban Risk (Official binary)
+            <div class="picker-option active" data-model="Claude 3.7 Sonnet" data-harness="claude">
+              <div class="picker-opt-logo"><img src="/static/claude.svg" width="18" height="18" /></div>
+              <div class="picker-opt-text">
+                <div class="picker-opt-title">Claude 3.7 Sonnet <span class="opt-badge native">Official CLI</span></div>
+                <div class="picker-opt-sub">Zero ban risk native execution &amp; hybrid thinking</div>
               </div>
             </div>
-            <div class="picker-option" data-model="AntiGravity Pro" data-harness="agy">
-              <div class="picker-opt-title">AntiGravity 2.5 Pro <span class="opt-badge agy">Google</span></div>
-              <div class="picker-opt-sub">Gemini Pro 2M context agentic engine</div>
+            <div class="picker-option" data-model="DeepSeek R1" data-harness="deepseek">
+              <div class="picker-opt-logo"><img src="/static/deepseek-icon.svg" width="18" height="18" /></div>
+              <div class="picker-opt-text">
+                <div class="picker-opt-title">DeepSeek R1 Reasoner <span class="opt-badge deepseek">Open Weights</span></div>
+                <div class="picker-opt-sub">Uncensored deep mathematical &amp; code reasoning</div>
+              </div>
             </div>
-            <div class="picker-option" data-model="AntiGravity Flash" data-harness="agy">
-              <div class="picker-opt-title">AntiGravity Flash <span class="opt-badge agy">Fast</span></div>
-              <div class="picker-opt-sub">Ultra-fast sub-second latency</div>
+            <div class="picker-option" data-model="DeepSeek V3" data-harness="deepseek">
+              <div class="picker-opt-logo"><img src="/static/deepseek-icon.svg" width="18" height="18" /></div>
+              <div class="picker-opt-text">
+                <div class="picker-opt-title">DeepSeek V3 (671B MoE) <span class="opt-badge deepseek">Fast</span></div>
+                <div class="picker-opt-sub">Ultra-high throughput 60 tok/s architecture</div>
+              </div>
             </div>
-            <div class="picker-option" data-model="OpenAI Codex" data-harness="codex">
-              <div class="picker-opt-title">OpenAI Codex <span class="opt-badge codex">GPT-4o</span></div>
-              <div class="picker-opt-sub">Advanced code completions</div>
+            <div class="picker-option" data-model="ChatGPT GPT-4o" data-harness="chatgpt">
+              <div class="picker-opt-logo"><img src="/static/chatgpt.svg" width="18" height="18" style="filter:invert(1);" /></div>
+              <div class="picker-opt-text">
+                <div class="picker-opt-title">ChatGPT GPT-4o <span class="opt-badge gpt">OpenAI</span></div>
+                <div class="picker-opt-sub">Omni multimodal intelligence &amp; coding</div>
+              </div>
             </div>
-            <div class="picker-option" data-model="@debate Mode" data-harness="debate">
-              <div class="picker-opt-title">Multi-Agent Debate <span class="opt-badge heat">Dual Agent</span></div>
-              <div class="picker-opt-sub">Claude and AntiGravity critique each other</div>
+            <div class="picker-option" data-model="AntiGravity 2.5 Pro" data-harness="agy">
+              <div class="picker-opt-logo"><img src="/static/gemini-sparkle.svg" width="18" height="18" /></div>
+              <div class="picker-opt-text">
+                <div class="picker-opt-title">AntiGravity 2.5 Pro <span class="opt-badge agy">Google</span></div>
+                <div class="picker-opt-sub">2,000,000 token context window with Google workspace</div>
+              </div>
+            </div>
+            <div class="picker-option" data-model="Multi-Agent Debate" data-harness="debate">
+              <div class="picker-opt-logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff6b00" stroke-width="2"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></div>
+              <div class="picker-opt-text">
+                <div class="picker-opt-title">Multi-Model Debate <span class="opt-badge heat">Consensus</span></div>
+                <div class="picker-opt-sub">Claude, DeepSeek &amp; AntiGravity cross-critique each other</div>
+              </div>
             </div>
           </div>
 
@@ -334,12 +370,10 @@
               <div class="toolbar-right">
                 <!-- Model Pill Button (Image 1: Opus 5) -->
                 <button type="button" id="btn-model-pill" class="model-pill-btn" title="Click to Switch Model">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="9"/>
-                    <path d="M12 3v18"/>
-                    <path d="M3 12h18"/>
-                  </svg>
-                  <span id="active-model-name">Opus 5</span>
+                  <span id="active-model-icon" style="display:inline-flex;align-items:center;">
+                    <img src="/static/claude.svg" width="13" height="13" alt="Model" />
+                  </span>
+                  <span id="active-model-name">Claude 3.7 Sonnet</span>
                   <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="tb-caret-svg">
                     <polyline points="6 9 12 15 18 9"></polyline>
                   </svg>
@@ -741,6 +775,6 @@
     </div>
   </div>
 
-  <script src="/static/js/app.js"></script>
+  <script src="/static/js/app.js?v=4.0"></script>
 </body>
 </html>

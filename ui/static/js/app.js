@@ -99,190 +99,99 @@ const btnSaveMcp = document.getElementById("btn-save-mcp");
 const providersStack = document.getElementById("providers-stack");
 const themeIconWrap = document.getElementById("theme-icon-wrap");
 
-// ── Vector SVG Icon Library (Studio Grade) ──────────────────────────────────
-function getSkillSvg(skillId) {
-  const id = (skillId || "").toLowerCase();
-  if (id.includes("art") || id.includes("paint") || id.includes("algorithmic")) {
-    return `
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="13.5" cy="6.5" r=".7" fill="currentColor"/>
-        <circle cx="17.5" cy="10.5" r=".7" fill="currentColor"/>
-        <circle cx="8.5" cy="7.5" r=".7" fill="currentColor"/>
-        <circle cx="6.5" cy="12.5" r=".7" fill="currentColor"/>
-        <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.65-.75 1.65-1.69 0-.44-.18-.84-.44-1.13-.29-.29-.44-.65-.44-1.13 0-.92.75-1.67 1.67-1.67h2c3.05 0 5.56-2.5 5.56-5.55C22 6.01 17.46 2 12 2z"/>
-      </svg>
-    `;
-  }
-  if (id.includes("brand") || id.includes("guideline")) {
-    return `
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-        <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
-        <line x1="12" y1="22.08" x2="12" y2="12"/>
-      </svg>
-    `;
-  }
-  if (id.includes("canvas") || id.includes("design")) {
-    return `
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
-        <circle cx="9" cy="9" r="2"/>
-        <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
-      </svg>
-    `;
-  }
-  if (id.includes("doc") || id.includes("author") || id.includes("write")) {
-    return `
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 20h9"/>
-        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
-      </svg>
-    `;
-  }
-  if (id.includes("comms") || id.includes("internal")) {
-    return `
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="m3 11 18-5v12L3 14v-3z"/>
-        <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>
-      </svg>
-    `;
-  }
-  if (id.includes("learn") || id.includes("edu")) {
-    return `
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/>
-        <path d="M9 18h6"/>
-        <path d="M10 22h4"/>
-      </svg>
-    `;
-  }
-  if (id.includes("mcp") || id.includes("builder")) {
-    return `
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <rect width="20" height="8" x="2" y="2" rx="2"/>
-        <rect width="20" height="8" x="2" y="14" rx="2"/>
-        <line x1="6" y1="6" x2="6.01" y2="6"/>
-        <line x1="6" y1="18" x2="6.01" y2="18"/>
-      </svg>
-    `;
-  }
-  if (id.includes("gif") || id.includes("slack") || id.includes("video")) {
-    return `
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <rect width="20" height="20" x="2" y="2" rx="2.2"/>
-        <line x1="7" y1="2" x2="7" y2="22"/>
-        <line x1="17" y1="2" x2="17" y2="22"/>
-        <line x1="2" y1="12" x2="22" y2="12"/>
-      </svg>
-    `;
-  }
-  if (id.includes("theme") || id.includes("factory")) {
-    return `
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="m18 15-6-6"/>
-        <path d="m21.5 4.5-3-3a1 1 0 0 0-1.4 0l-12 12a1 1 0 0 0-.2.4l-1.8 5.4a.5.5 0 0 0 .6.6l5.4-1.8a1 1 0 0 0 .4-.2l12-12a1 1 0 0 0 0-1.4z"/>
-      </svg>
-    `;
-  }
-  if (id.includes("web") || id.includes("artifact")) {
-    return `
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="16 18 22 12 16 6"/>
-        <polyline points="8 6 2 12 8 18"/>
-      </svg>
-    `;
-  }
-  return `
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-      <polyline points="14 2 14 8 20 8"/>
-      <line x1="16" y1="13" x2="8" y2="13"/>
-      <line x1="16" y1="17" x2="8" y2="17"/>
-    </svg>
-  `;
-}
-
-function getMcpSvg(mcpId) {
-  const id = (mcpId || "").toLowerCase();
+// ── Vector Brand Badge & Icon Library (Studio Grade) ─────────────────────────
+function getMcpBadge(mcp) {
+  const id = ((mcp && mcp.id) || "").toLowerCase();
   if (id.includes("github")) {
-    return `<svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor">
-      <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
-    </svg>`;
+    return `<div class="cust-item-icon mcp-brand-github" title="GitHub"><img src="/static/github.svg" alt="GitHub" /></div>`;
   }
   if (id.includes("postgres")) {
-    return `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <ellipse cx="12" cy="5" rx="9" ry="3"/>
-      <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
-      <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
-    </svg>`;
+    return `<div class="cust-item-icon mcp-brand-postgres" title="PostgreSQL"><img src="/static/postgres.svg" alt="PostgreSQL" /></div>`;
   }
   if (id.includes("brave") || id.includes("search")) {
-    return `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-      <circle cx="12" cy="11" r="3"/>
-    </svg>`;
+    return `<div class="cust-item-icon mcp-brand-brave" title="Brave Search"><img src="/static/brave.svg" alt="Brave" /></div>`;
   }
   if (id.includes("filesystem") || id.includes("file")) {
-    return `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
-    </svg>`;
+    return `<div class="cust-item-icon mcp-brand-filesystem" title="Local Filesystem"><img src="/static/filesystem.svg" alt="Filesystem" /></div>`;
   }
   if (id.includes("memory")) {
-    return `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-2.04Z"/>
-      <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-2.04Z"/>
-    </svg>`;
+    return `<div class="cust-item-icon mcp-brand-memory" title="Knowledge Memory"><img src="/static/memory.svg" alt="Memory" /></div>`;
   }
   if (id.includes("sqlite")) {
-    return `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <ellipse cx="12" cy="5" rx="9" ry="3"/>
-      <path d="M3 5V19A9 3 0 0 0 21 19V5"/>
-      <path d="M3 12A9 3 0 0 0 21 12"/>
-    </svg>`;
+    return `<div class="cust-item-icon mcp-brand-sqlite" title="SQLite"><img src="/static/sqlite.svg" alt="SQLite" /></div>`;
   }
   if (id.includes("docker")) {
-    return `<svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M13.983 11.078h2.119a.186.186 0 00.186-.185V9.006a.186.186 0 00-.186-.186h-2.119a.185.185 0 00-.185.185v1.888c0 .102.083.185.185.185m-2.954-5.43h2.118a.186.186 0 00.186-.186V3.574a.186.186 0 00-.186-.185h-2.118a.185.185 0 00-.185.185v1.888c0 .102.082.185.185.185m0 2.716h2.118a.187.187 0 00.186-.186V6.29a.186.186 0 00-.186-.185h-2.118a.185.185 0 00-.185.185v1.887c0 .102.082.186.185.186m-2.93 0h2.12a.186.186 0 00.184-.186V6.29a.185.185 0 00-.185-.185H8.1a.185.185 0 00-.185.185v1.887c0 .102.083.186.185.186m-2.964 0h2.119a.186.186 0 00.185-.186V6.29a.185.185 0 00-.185-.185H5.136a.186.186 0 00-.186.185v1.887c0 .102.084.186.186.186m5.893 2.715h2.119a.186.186 0 00.186-.185V9.006a.186.186 0 00-.186-.186h-2.119a.185.185 0 00-.185.185v1.888c0 .102.082.185.185.185m-2.93 0h2.12a.185.185 0 00.184-.185V9.006a.185.185 0 00-.184-.186H8.1a.185.185 0 00-.185.185v1.888c0 .102.083.185.185.185m-2.964 0h2.119a.185.185 0 00.185-.185V9.006a.185.185 0 00-.185-.186H5.136a.186.186 0 00-.186.185v1.888c0 .102.084.185.186.185m-2.928 0h2.119a.185.185 0 00.185-.185V9.006a.185.185 0 00-.185-.186H2.208a.185.185 0 00-.185.185v1.888c0 .102.083.185.185.185M23.99 11.23a4.06 4.06 0 00-.806-1.55l-.262-.31-.383.136a5.5 5.5 0 00-1.854 1.258c-.37-.417-.89-.667-1.46-.667h-.82a.185.185 0 00-.185.185v2.793a.185.185 0 00.185.185h.063c.53.003 1.042.146 1.488.414a3.17 3.17 0 011.666 2.502c.036.37.042.744.018 1.118-.112 1.745-1.22 3.264-2.824 3.87-1.127.426-2.35.503-3.553.226-2.126-.49-3.957-1.83-5.267-3.844a.186.186 0 00-.156-.083H4.82a7.35 7.35 0 01-3.21-1.077l-.234-.145-.164.221A3.76 3.76 0 00.5 17.65c.088 1.95 1.18 3.655 2.873 4.484 2.296 1.125 4.966 1.157 7.288.087 1.487-.686 2.8-1.748 3.82-3.09 1.13-1.49 1.83-3.23 2.05-5.07.03-.25.04-.5.03-.75.69-.17 1.34-.48 1.9-.92.83-.65 1.38-1.57 1.53-2.61"/>
-    </svg>`;
+    return `<div class="cust-item-icon mcp-brand-docker" title="Docker Engine"><img src="/static/docker.svg" alt="Docker" /></div>`;
   }
   if (id.includes("puppeteer")) {
-    return `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <rect width="20" height="15" x="2" y="3" rx="2"/>
-      <line x1="2" x2="22" y1="9" y2="9"/>
-      <circle cx="6" cy="6" r="1" fill="currentColor"/>
-      <circle cx="10" cy="6" r="1" fill="currentColor"/>
-      <circle cx="14" cy="6" r="1" fill="currentColor"/>
-    </svg>`;
+    return `<div class="cust-item-icon mcp-brand-puppeteer" title="Puppeteer Browser"><img src="/static/puppeteer.svg" alt="Puppeteer" /></div>`;
   }
-  return `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-    <rect width="18" height="18" x="3" y="3" rx="2"/>
-    <path d="m9 8 3 3-3 3"/>
-    <line x1="15" x2="15.01" y1="14" y2="14"/>
-  </svg>`;
+  return `<div class="cust-item-icon mcp-brand-filesystem"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 8 3 3-3 3"/><line x1="15" x2="15.01" y1="14" y2="14"/></svg></div>`;
 }
 
-function getProviderSvg(providerId) {
+function getSkillBadge(skill) {
+  const id = ((skill && skill.id) || "").toLowerCase();
+  let badgeClass = "skill-badge-code";
+  let svgContent = "";
+
+  if (id.includes("art") || id.includes("paint") || id.includes("algorithmic") || id.includes("design") || id.includes("canvas")) {
+    badgeClass = "skill-badge-design";
+    svgContent = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".7" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".7" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".7" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".7" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.65-.75 1.65-1.69 0-.44-.18-.84-.44-1.13-.29-.29-.44-.65-.44-1.13 0-.92.75-1.67 1.67-1.67h2c3.05 0 5.56-2.5 5.56-5.55C22 6.01 17.46 2 12 2z"/></svg>`;
+  } else if (id.includes("doc") || id.includes("author") || id.includes("write") || id.includes("comms")) {
+    badgeClass = "skill-badge-docs";
+    svgContent = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`;
+  } else if (id.includes("learn") || id.includes("analysis") || id.includes("trend") || id.includes("metric")) {
+    badgeClass = "skill-badge-analysis";
+    svgContent = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>`;
+  } else if (id.includes("mcp") || id.includes("builder") || id.includes("server")) {
+    badgeClass = "skill-badge-mcp";
+    svgContent = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>`;
+  } else {
+    badgeClass = "skill-badge-code";
+    svgContent = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`;
+  }
+
+  return `<div class="cust-item-icon ${badgeClass}">${svgContent}</div>`;
+}
+
+function getProviderBadge(providerId) {
   const pid = (providerId || "").toLowerCase();
   if (pid.includes("claude")) {
-    return `<svg width="22" height="22" viewBox="0 0 24 24" fill="#e57c5c">
-      <path d="m12 1.5 2.6 6.5 6.9 1-5.3 4.6 1.7 6.8-5.9-3.7-5.9 3.7 1.7-6.8-5.3-4.6 6.9-1Z"/>
-    </svg>`;
+    return `<div class="prov-avatar-box claude-avatar" title="Anthropic Claude"><img src="/static/claude.svg" alt="Claude" /></div>`;
   }
-  if (pid.includes("antigravity")) {
-    return `<svg width="22" height="22" viewBox="0 0 24 24" fill="#10b981">
-      <path d="M12 2C12 7.5 7.5 12 2 12C7.5 12 12 16.5 12 22C12 16.5 16.5 12 22 12C16.5 12 12 7.5 12 2Z"/>
-    </svg>`;
+  if (pid.includes("deepseek")) {
+    return `<div class="prov-avatar-box deepseek-avatar" title="DeepSeek AI"><img src="/static/deepseek-icon.svg" alt="DeepSeek" /></div>`;
+  }
+  if (pid.includes("chatgpt") || pid.includes("openai")) {
+    return `<div class="prov-avatar-box chatgpt-avatar" title="OpenAI ChatGPT"><img src="/static/chatgpt.svg" alt="ChatGPT" style="filter:invert(1);" /></div>`;
+  }
+  if (pid.includes("antigravity") || pid.includes("gemini")) {
+    return `<div class="prov-avatar-box agy-avatar" title="Google AntiGravity"><img src="/static/gemini-sparkle.svg" alt="AntiGravity" /></div>`;
   }
   if (pid.includes("codex")) {
-    return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="9"/>
-      <path d="M12 3a9 9 0 0 1 9 9"/>
-      <path d="M12 7a5 5 0 0 1 5 5"/>
-    </svg>`;
+    return `<div class="prov-avatar-box codex-avatar" title="OpenAI Codex"><img src="/static/claude.svg" alt="Codex" /></div>`;
   }
-  return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0071e3" stroke-width="2">
-    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-  </svg>`;
+  return `<div class="prov-avatar-box" style="background:var(--surface);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg></div>`;
+}
+
+function getHarnessHeaderBadge(harness) {
+  const h = (harness || "claude").toLowerCase();
+  if (h === "claude") {
+    return `<span class="msg-avatar-tag claude"><img src="/static/claude.svg" width="13" height="13" alt="Claude" /> Claude Code</span>`;
+  }
+  if (h === "deepseek") {
+    return `<span class="msg-avatar-tag deepseek"><img src="/static/deepseek-icon.svg" width="13" height="13" alt="DeepSeek" /> DeepSeek R1</span>`;
+  }
+  if (h === "chatgpt") {
+    return `<span class="msg-avatar-tag chatgpt"><img src="/static/chatgpt.svg" width="13" height="13" alt="ChatGPT" style="filter:invert(1);" /> ChatGPT</span>`;
+  }
+  if (h.includes("antigravity") || h === "agy") {
+    return `<span class="msg-avatar-tag agy"><img src="/static/gemini-sparkle.svg" width="13" height="13" alt="AntiGravity" /> AntiGravity Pro</span>`;
+  }
+  if (h === "debate") {
+    return `<span class="msg-avatar-tag debate"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ff6b00" stroke-width="2"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg> Multi-Model Debate</span>`;
+  }
+  return `<span class="msg-avatar-tag user">${esc(h.toUpperCase())}</span>`;
 }
 
 // ── 1. Theme Management (Obsidian Dark vs Apple Light) ──────────────────────
@@ -382,6 +291,8 @@ btnModelPill.addEventListener("click", (e) => {
   modelPickerMenu.classList.toggle("hidden");
 });
 
+const activeModelIcon = document.getElementById("active-model-icon");
+
 document.querySelectorAll(".picker-option").forEach(opt => {
   opt.addEventListener("click", () => {
     document.querySelectorAll(".picker-option").forEach(o => o.classList.remove("active"));
@@ -389,6 +300,15 @@ document.querySelectorAll(".picker-option").forEach(opt => {
     selectedModel = opt.dataset.model;
     selectedHarness = opt.dataset.harness || "claude";
     activeModelName.textContent = selectedModel;
+    if (activeModelIcon) {
+      const logoImg = opt.querySelector(".picker-opt-logo img");
+      const logoSvg = opt.querySelector(".picker-opt-logo svg");
+      if (logoImg) {
+        activeModelIcon.innerHTML = `<img src="${logoImg.src}" width="13" height="13" style="${logoImg.style.cssText}" alt="${selectedHarness}" />`;
+      } else if (logoSvg) {
+        activeModelIcon.innerHTML = logoSvg.outerHTML;
+      }
+    }
     modelPickerMenu.classList.add("hidden");
   });
 });
@@ -598,7 +518,7 @@ function appendAssistantMessage(harness, model, content, tokens) {
 
   row.innerHTML = `
     <div class="msg-header-tag">
-      <span class="tag-badge ${harness}">${harness.toUpperCase()}</span>
+      ${getHarnessHeaderBadge(harness)}
       <span style="color:var(--text-3);font-size:11px;">${model || ''}</span>
     </div>
     <div class="msg-card">${renderedContent}</div>
@@ -763,7 +683,7 @@ function renderCustomizeList() {
       row.className = "cust-item-row";
       row.innerHTML = `
         <div class="cust-item-left">
-          <div class="cust-item-icon">${getMcpSvg(mcp.id)}</div>
+          ${getMcpBadge(mcp)}
           <div class="cust-item-meta">
             <div class="cust-item-title">${esc(mcp.name)} <span style="font-size:11px;color:var(--text-3);font-weight:normal;">(${mcp.toolsCount || 0} tools)</span></div>
             <div class="cust-item-sub">
@@ -806,7 +726,7 @@ function renderCustomizeList() {
       row.className = "cust-item-row";
       row.innerHTML = `
         <div class="cust-item-left">
-          <div class="cust-item-icon">${getSkillSvg(skill.id)}</div>
+          ${getSkillBadge(skill)}
           <div class="cust-item-meta">
             <div class="cust-item-title">${esc(skill.title)}</div>
             <div class="cust-item-sub">
@@ -835,8 +755,8 @@ function renderCustomizeList() {
     customizeList.innerHTML = `
       <div class="cust-item-row">
         <div class="cust-item-left">
-          <div class="cust-item-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <div class="cust-item-icon skill-badge-design">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M15 4V2a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v2a3 3 0 0 0-3 3H4a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h2a3 3 0 0 1 3 3v2a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-2a3 3 0 0 1 3-3h2a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-2a3 3 0 0 0-3-3Z"/>
             </svg>
           </div>
@@ -849,8 +769,8 @@ function renderCustomizeList() {
       </div>
       <div class="cust-item-row">
         <div class="cust-item-left">
-          <div class="cust-item-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <div class="cust-item-icon skill-badge-mcp">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
             </svg>
           </div>
@@ -1096,7 +1016,7 @@ async function loadProviders() {
       panel.className = "prov-item-panel";
       panel.innerHTML = `
         <div class="prov-panel-left">
-          <div class="prov-avatar-box">${getProviderSvg(p.id)}</div>
+          ${getProviderBadge(p.id)}
           <div>
             <div class="prov-title-text">${esc(p.name)}</div>
             <div class="prov-desc-text">${esc(p.description)}</div>
