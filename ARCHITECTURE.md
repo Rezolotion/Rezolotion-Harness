@@ -35,7 +35,8 @@ Rezolotion Harness is a local-first desktop-grade orchestrator that unites multi
 ```
 
 ### 2.1 Headless CLI Execution (Zero Regex / Zero Terminal Scraping)
-Anthropic Claude Code is executed in native headless mode via:
+Both CLI providers are executed in native headless mode. Exact flags and the measured event
+schema for each live in section 2.3. Claude Code:
 ```bash
 claude -p \
        --output-format stream-json \
@@ -61,7 +62,61 @@ Event = (
 ```
 The frontend consumes exclusively these 8 event types.
 
-### 2.3 Real MCP Integration
+### 2.3 Provider wire contracts — measured, not assumed
+
+> Ratified 2026-09-20. The AntiGravity schema below was captured from a live probe, not read
+> from documentation. AntiGravity itself answered UNKNOWN when asked, and confirmed these values
+> afterwards. Do not "improve" them from memory — re-probe.
+
+**Claude Code**
+
+```bash
+claude -p --output-format stream-json --input-format stream-json \
+       --verbose --session-id <uuid>
+```
+
+**AntiGravity (`agy`)** — note there is **no** `--session-id` flag; resume is by conversation id.
+
+```bash
+agy -p --output-format stream-json --input-format stream-json \
+    --project <project_uuid> [--conversation <conversation_uuid>] [--effort low|medium|high]
+```
+
+Observed NDJSON, one object per line:
+
+| Wire | Normalized event |
+|---|---|
+| `{"event":"init","conversation_id":…,"init":{"cwd","tools",  "permission_mode"}}` | session open — store `conversation_id`, resume with `--conversation` |
+| `step_update` · `step_type:"agent_response"` · `state:"ACTIVE"` · `text_delta` | `text_delta` |
+| `step_update` · `step_type:"agent_response"` · `state:"DONE"` · `usage` · `duration_seconds` | `usage_update` |
+| `step_update` · `step_type:"tool"` · `state:"ACTIVE"` · `tool_name` · `tool_info{name,parameters}` | `tool_call` |
+| `step_update` · `step_type:"tool"` · `state:"DONE"` · `tool_info` | `tool_result` |
+| `step_update` · `step_type:"tool"` · `state:"ERROR"` · `tool_info.error{type,message}` | `tool_result` (failed) |
+| `{"event":"result","result":{"status","response","num_turns","usage","denied_actions"}}` | `done` |
+
+`usage` carries `input_tokens`, `output_tokens`, `thinking_tokens`, `cache_read_tokens`,
+`total_tokens` — real numbers. Token counts must never be estimated from word counts again.
+
+### 2.4 Provider capability matrix — the asymmetries the UI must absorb
+
+Providers are not interchangeable. The frontend consumes the same 8 events from all of them, but
+two capabilities are genuinely missing from AntiGravity and the UI must degrade honestly rather
+than fake them.
+
+| Capability | Claude Code | AntiGravity | Consequence for the UI |
+|---|---|---|---|
+| `text_delta` streaming | yes | yes | — |
+| `tool_call` / `tool_result` | yes | yes | — |
+| Real token + cost accounting | yes | yes | per-turn cost is real for both |
+| `thinking_delta` trace | yes | **no** — reports `thinking_tokens` only | show a reasoning trace for Claude; show a token count for AntiGravity, never a fabricated trace |
+| Blocking `permission_request` | yes, mid-turn | **no** — headless mode denies, then reports `denied_actions` in the final result | Claude gets a live allow/deny dialog; AntiGravity surfaces what was denied *after* the turn and offers to write an allow-rule |
+| Interrupt mid-turn | yes | process signal only | Esc cancels cleanly for Claude; for AntiGravity it terminates the subprocess |
+
+A single headless AntiGravity turn costs roughly 27k input tokens of system context before your
+prompt is even counted. Long-lived resumed conversations are therefore strongly preferred over
+repeated one-shot calls.
+
+### 2.5 Real MCP Integration
 - **Direct Configuration:** Read and write native `~/.claude.json` and `.mcp.json`.
 - **CLI Commands:** Wrap `claude mcp add`, `claude mcp list`, and `claude mcp remove`.
 - **Server Discovery:** Fetch real extensions from the official MCP registry without mock catalog data.
