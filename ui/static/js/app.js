@@ -1,251 +1,128 @@
 /**
- * Claude Code Studio — Frontend Interactive Engine
- * Handles 3-column layout, popovers, model switcher, context inspector,
- * interactive choice chips, skills store, and WebSocket multi-agent chat.
+ * Rezolotion Harness — Apple Liquid Glass Interactive Engine
+ * Multi-Agent Orchestration + Interactive Decision Chips + Context Popover
  */
 
-// ── Application State ──────────────────────────────────────────────────────
-const state = {
-  currentView: "chat", // "chat" | "customize"
-  activeModel: "Opus 5",
-  isFastMode: false,
-  isThinkingAuto: true,
-  rightSidebarOpen: true,
-  contextUsage: {
-    total: 319600,
-    max: 1000000,
-    messages: 269200,
-    skills: 9900,
-    systemTools: 9200,
-    mcpTools: 7800,
-    systemPrompt: 3500,
-    free: 650400,
-  },
-  skillsCatalog: [
-    { id: "algorithmic-art", name: "algorithmic-art", author: "by Anthropic", desc: "Creating algorithmic art using p5.js with seeded randomness and interactive parameter exploration." },
-    { id: "brand-guidelines", name: "brand-guidelines", author: "by Anthropic", desc: "Applies Anthropic's official brand colors and typography to any sort of artifact that may benefit..." },
-    { id: "canvas-design", name: "canvas-design", author: "by Anthropic", desc: "Create beautiful visual art in .png and .pdf documents using design philosophy. You should us..." },
-    { id: "dcc-coauthoring", name: "dcc-coauthoring", author: "by Anthropic", desc: "Guide users through a structured workflow for co-authoring documentation. Use when user ..." },
-    { id: "internal-comms", name: "internal-comms", author: "by Anthropic", desc: "A set of resources to help me write all kinds of internal communications, using the formats th..." },
-    { id: "learn", name: "learn", author: "by Anthropic", desc: "Use this skill when the user wants intellectual understanding — learning how or why somethi..." },
-    { id: "mcp-builder", name: "mcp-builder", author: "by Anthropic", desc: "Guide for creating high-quality MCP (Model Context Protocol) servers that enable LLMs to i..." },
-    { id: "slack-gif-creator", name: "slack-gif-creator", author: "by Anthropic", desc: "Knowledge and utilities for creating animated GIFs optimized for Slack. Provides constraints, ..." },
-    { id: "theme-factory", name: "theme-factory", author: "by Anthropic", desc: "Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTM..." },
-    { id: "web-artifacts-builder", name: "web-artifacts-builder", author: "by Anthropic", desc: "Suite of tools for creating elaborate, multi-component claude.ai HTML artifacts using modern..." }
-  ],
-  addedSkills: new Set(["canvas-design", "learn"])
-};
+// ── State ──────────────────────────────────────────────────────────────────
+let currentView = "chat";
+let totalTokens = { input: 0, output: 0 };
+let ws = null;
 
-// ── DOM Elements ───────────────────────────────────────────────────────────
-const leftSidebar = document.getElementById("left-sidebar");
-const rightSidebar = document.getElementById("right-sidebar");
-const studioChatView = document.getElementById("studio-chat-view");
-const studioCustomizeView = document.getElementById("studio-customize-view");
+// ── DOM References ──────────────────────────────────────────────────────────
+const menuBtnChat = document.getElementById("menu-btn-chat");
+const menuBtnProviders = document.getElementById("menu-btn-providers");
+const viewChat = document.getElementById("view-chat");
+const viewProviders = document.getElementById("view-providers");
 
-const navBtnNewChat = document.getElementById("nav-btn-new-chat");
-const navBtnCustomize = document.getElementById("nav-btn-customize");
-const btnToggleRightSidebar = document.getElementById("btn-toggle-right-sidebar");
-const btnCloseRightSidebar = document.getElementById("btn-close-right-sidebar");
-
-// Popovers
-const modelPopover = document.getElementById("model-popover");
-const btnModelPicker = document.getElementById("btn-model-picker");
-const currentActiveModelLabel = document.getElementById("current-active-model-label");
-const moreModelsTrigger = document.getElementById("more-models-trigger");
-const moreModelsSubmenu = document.getElementById("more-models-submenu");
-const fastModeToggle = document.getElementById("fast-mode-toggle");
-
+const btnOpenInspector = document.getElementById("btn-open-inspector");
 const contextPopover = document.getElementById("context-popover");
-const btnContextInspector = document.getElementById("btn-context-inspector");
+const inspectorSummaryText = document.getElementById("inspector-summary-text");
+const metricMsgs = document.getElementById("metric-msgs");
+const metricFree = document.getElementById("metric-free");
+const popoverTotalMetric = document.getElementById("popover-total-metric");
 
-const filterPopover = document.getElementById("filter-popover");
-const btnProjectFilter = document.getElementById("btn-project-filter");
-
-// Chat & Inputs
-const messagesContainer = document.getElementById("messages-container");
-const studioChatForm = document.getElementById("studio-chat-form");
-const studioTextarea = document.getElementById("studio-textarea");
-const studioSubmitBtn = document.getElementById("studio-submit-btn");
-const thinkingText = document.getElementById("thinking-text");
-
-// Skills Store
-const skillsCatalogList = document.getElementById("skills-catalog-list");
-const skillsSearchInput = document.getElementById("skills-search-input");
+const chatViewport = document.getElementById("chat-viewport");
+const chatInputForm = document.getElementById("chat-input-form");
+const messageTextarea = document.getElementById("message-textarea");
+const sendBtn = document.getElementById("send-btn");
+const slashMenu = document.getElementById("slash-menu");
+const btnClearChat = document.getElementById("btn-clear-chat");
+const providersStack = document.getElementById("providers-stack");
 
 
-// ── View Switching ─────────────────────────────────────────────────────────
+// ── View Navigation ────────────────────────────────────────────────────────
 function setView(viewName) {
-  state.currentView = viewName;
+  currentView = viewName;
+  menuBtnChat.classList.toggle("active", viewName === "chat");
+  menuBtnProviders.classList.toggle("active", viewName === "providers");
 
-  navBtnNewChat.classList.toggle("active", viewName === "chat");
-  navBtnCustomize.classList.toggle("active", viewName === "customize");
+  viewChat.classList.toggle("active", viewName === "chat");
+  viewProviders.classList.toggle("active", viewName === "providers");
 
-  studioChatView.classList.toggle("active", viewName === "chat");
-  studioCustomizeView.classList.toggle("active", viewName === "customize");
+  contextPopover.classList.add("hidden");
+  slashMenu.classList.add("hidden");
 
-  closeAllPopovers();
-
-  if (viewName === "customize") {
-    renderSkillsCatalog();
+  if (viewName === "providers") {
+    loadProviders();
   }
 }
 
-navBtnNewChat.addEventListener("click", () => setView("chat"));
-navBtnCustomize.addEventListener("click", () => setView("customize"));
+menuBtnChat.addEventListener("click", () => setView("chat"));
+menuBtnProviders.addEventListener("click", () => setView("providers"));
 
 
-// ── Right Sidebar Toggle (Background tasks) ────────────────────────────────
-function toggleRightSidebar() {
-  state.rightSidebarOpen = !state.rightSidebarOpen;
-  rightSidebar.classList.toggle("collapsed", !state.rightSidebarOpen);
-}
-btnToggleRightSidebar.addEventListener("click", toggleRightSidebar);
-btnCloseRightSidebar.addEventListener("click", toggleRightSidebar);
-
-
-// ── Popovers Management ────────────────────────────────────────────────────
-function closeAllPopovers() {
-  modelPopover.classList.add("hidden");
-  contextPopover.classList.add("hidden");
-  filterPopover.classList.add("hidden");
-  moreModelsSubmenu.classList.add("hidden");
-}
+// ── Context Window & Quota Inspector Popover ────────────────────────────────
+btnOpenInspector.addEventListener("click", (e) => {
+  e.stopPropagation();
+  contextPopover.classList.toggle("hidden");
+});
 
 document.addEventListener("click", (e) => {
-  if (
-    !e.target.closest(".studio-popover") &&
-    !e.target.closest(".model-picker-trigger") &&
-    !e.target.closest(".token-meter-trigger") &&
-    !e.target.closest("#btn-project-filter")
-  ) {
-    closeAllPopovers();
+  if (!e.target.closest("#context-popover") && !e.target.closest("#btn-open-inspector")) {
+    contextPopover.classList.add("hidden");
+  }
+  if (!e.target.closest("#slash-menu") && !e.target.closest("#message-textarea")) {
+    slashMenu.classList.add("hidden");
   }
 });
 
-// 1. Model Picker Popover (Image 2)
-btnModelPicker.addEventListener("click", (e) => {
-  e.stopPropagation();
-  const isOpen = !modelPopover.classList.contains("hidden");
-  closeAllPopovers();
-  if (!isOpen) {
-    modelPopover.classList.remove("hidden");
+
+// ── Slash Commands Autocomplete ────────────────────────────────────────────
+messageTextarea.addEventListener("input", () => {
+  const val = messageTextarea.value;
+  if (val.startsWith("/")) {
+    slashMenu.classList.remove("hidden");
+  } else {
+    slashMenu.classList.add("hidden");
   }
+
+  // Auto-resize textarea
+  messageTextarea.style.height = "auto";
+  messageTextarea.style.height = Math.min(messageTextarea.scrollHeight, 160) + "px";
 });
 
-moreModelsTrigger.addEventListener("mouseenter", () => {
-  moreModelsSubmenu.classList.remove("hidden");
-});
-
-document.querySelectorAll(".popover-item[data-model]").forEach((item) => {
+document.querySelectorAll(".slash-item").forEach(item => {
   item.addEventListener("click", () => {
-    const model = item.dataset.model;
-    const name = item.querySelector(".item-name").textContent.split("<")[0].trim();
-    state.activeModel = name;
-    currentActiveModelLabel.textContent = name;
-    closeAllPopovers();
-    updateThinkingBanner(`Ready with ${name}`);
+    const cmd = item.dataset.cmd;
+    if (cmd === "/clear") {
+      clearChat();
+    } else {
+      messageTextarea.value = cmd;
+      messageTextarea.focus();
+    }
+    slashMenu.classList.add("hidden");
   });
 });
 
-fastModeToggle.addEventListener("change", (e) => {
-  state.isFastMode = e.target.checked;
-});
 
-// 2. Context Window & Quota Popover (Image 3)
-btnContextInspector.addEventListener("click", (e) => {
-  e.stopPropagation();
-  const isOpen = !contextPopover.classList.contains("hidden");
-  closeAllPopovers();
-  if (!isOpen) {
-    contextPopover.classList.remove("hidden");
-  }
-});
-
-// 3. Project Filter Popover (Image 4)
-btnProjectFilter.addEventListener("click", (e) => {
-  e.stopPropagation();
-  const isOpen = !filterPopover.classList.contains("hidden");
-  closeAllPopovers();
-  if (!isOpen) {
-    const rect = btnProjectFilter.getBoundingClientRect();
-    filterPopover.style.top = `${rect.bottom + 6}px`;
-    filterPopover.style.left = `${rect.left}px`;
-    filterPopover.classList.remove("hidden");
-  }
+// ── Quick Insert Chips ─────────────────────────────────────────────────────
+document.querySelectorAll("[data-insert], [data-cmd]").forEach(el => {
+  el.addEventListener("click", () => {
+    const text = el.dataset.insert || el.dataset.cmd;
+    messageTextarea.value = text;
+    messageTextarea.focus();
+  });
 });
 
 
-// ── Skills Store Catalog (Image 5) ─────────────────────────────────────────
-function renderSkillsCatalog(filterText = "") {
-  skillsCatalogList.innerHTML = "";
-  const query = filterText.toLowerCase();
-
-  const filtered = state.skillsCatalog.filter(s =>
-    s.name.toLowerCase().includes(query) || s.desc.toLowerCase().includes(query)
-  );
-
-  filtered.forEach(skill => {
-    const isAdded = state.addedSkills.has(skill.id);
-    const card = document.createElement("div");
-    card.className = "skill-card-item";
-    card.innerHTML = `
-      <div class="skill-card-left">
-        <div class="skill-icon-wrap">📄</div>
-        <div class="skill-info">
-          <div class="skill-title-row">
-            <span class="skill-name">${skill.name}</span>
-            <span class="skill-author">${skill.author}</span>
-          </div>
-          <div class="skill-desc">${skill.desc}</div>
-        </div>
-      </div>
-      <button class="btn-add-skill ${isAdded ? 'added' : ''}" data-id="${skill.id}">
-        ${isAdded ? '✔ Added' : 'Add'}
-      </button>
-    `;
-
-    card.querySelector(".btn-add-skill").addEventListener("click", function() {
-      if (state.addedSkills.has(skill.id)) {
-        state.addedSkills.delete(skill.id);
-        this.classList.remove("added");
-        this.textContent = "Add";
-      } else {
-        state.addedSkills.add(skill.id);
-        this.classList.add("added");
-        this.textContent = "✔ Added";
-      }
-    });
-
-    skillsCatalogList.appendChild(card);
+// ── Decision Chips Handler (Interactive Feature) ───────────────────────────
+function attachDecisionHandlers() {
+  document.querySelectorAll(".decision-action-btn").forEach(btn => {
+    btn.onclick = () => {
+      const resp = btn.dataset.prompt || btn.textContent.trim();
+      sendUserMessage(resp);
+    };
   });
 }
-
-skillsSearchInput?.addEventListener("input", (e) => {
-  renderSkillsCatalog(e.target.value);
-});
-
-
-// ── Interactive Decision Chips Handler (Image 1) ───────────────────────────
-function setupDecisionChips() {
-  document.querySelectorAll(".decision-chip").forEach(chip => {
-    chip.addEventListener("click", () => {
-      const responseText = chip.dataset.response || chip.textContent.trim();
-      sendUserMessage(responseText);
-    });
-  });
-}
-setupDecisionChips();
 
 
 // ── WebSocket Multi-Agent Chat ─────────────────────────────────────────────
-let ws = null;
-
 function initWebSocket() {
   const proto = location.protocol === "https:" ? "wss" : "ws";
   ws = new WebSocket(`${proto}://${location.host}/ws/chat`);
 
   ws.onopen = () => {
-    updateThinkingBanner("Connected & Ready");
+    document.getElementById("gateway-status").textContent = "Native Engine Connected";
   };
 
   ws.onmessage = ({ data }) => {
@@ -254,7 +131,7 @@ function initWebSocket() {
   };
 
   ws.onclose = () => {
-    updateThinkingBanner("Reconnecting…");
+    document.getElementById("gateway-status").textContent = "Reconnecting…";
     setTimeout(initWebSocket, 2500);
   };
 }
@@ -262,18 +139,16 @@ function initWebSocket() {
 function handleChatEvent(ev) {
   switch (ev.event) {
     case "routing":
-      updateThinkingBanner(`Routing to ${ev.targets.join(", ")}…`);
-      showLiveThinkingIndicator(ev.targets[0]);
+      showRoutingBanner(ev.targets);
       break;
 
     case "response":
-      removeLiveThinkingIndicator();
-      appendAssistantMessage(ev.harness, ev.model, ev.content);
-      updateThinkingBanner(`Ready · Last response: ${ev.tokens?.output || 0} tokens`);
+      removeRoutingBanner();
+      appendAssistantMessage(ev.harness, ev.model, ev.content, ev.tokens);
       break;
 
     case "debate_round_start":
-      updateThinkingBanner(`🎭 Debate Round ${ev.round} of ${ev.total}…`);
+      appendDebateRoundBanner(ev.round, ev.total);
       break;
 
     case "debate_response":
@@ -281,17 +156,16 @@ function handleChatEvent(ev) {
       break;
 
     case "debate_complete":
-      updateThinkingBanner(`✅ Debate complete (${ev.rounds} rounds)`);
+      appendSystemNotice(`✅ Debate concluded after ${ev.rounds} rounds.`);
       break;
 
     case "error":
-      removeLiveThinkingIndicator();
-      appendAssistantMessage("error", "system", `❌ ${ev.message}`);
-      updateThinkingBanner("Error occurred");
+      removeRoutingBanner();
+      appendSystemNotice(`❌ ${ev.message}`);
       break;
 
     case "done":
-      setSubmitting(false);
+      setSending(false);
       break;
   }
 }
@@ -299,133 +173,203 @@ function handleChatEvent(ev) {
 function sendUserMessage(text) {
   if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
 
-  // Append user message
+  document.querySelector(".welcome-card")?.remove();
   appendUserMessage(text);
-  setSubmitting(true);
-  updateThinkingBanner("Thinking… ⏱️");
+  setSending(true);
 
   ws.send(JSON.stringify({ message: text }));
+  messageTextarea.value = "";
+  messageTextarea.style.height = "auto";
+  slashMenu.classList.add("hidden");
 }
 
+chatInputForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const text = messageTextarea.value.trim();
+  if (text) sendUserMessage(text);
+});
+
+messageTextarea.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    chatInputForm.requestSubmit();
+  }
+});
+
+
+// ── Message Renderers (Apple Liquid Glass) ──────────────────────────────────
 function appendUserMessage(text) {
-  const wrap = document.createElement("div");
-  wrap.className = "agent-msg-bubble user-bubble";
-  wrap.innerHTML = `
-    <div style="background:rgba(255,255,255,0.06);padding:12px 18px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);align-self:flex-end;color:#fff;">
-      ${escHtml(text)}
-    </div>
+  const row = document.createElement("div");
+  row.className = "msg-row user";
+  row.innerHTML = `
+    <div class="msg-header-tag"><span class="tag-badge user">You</span></div>
+    <div class="msg-card">${esc(text)}</div>
   `;
-  wrap.style.alignItems = "flex-end";
-  messagesContainer.appendChild(wrap);
-  scrollChatBottom();
+  chatViewport.appendChild(row);
+  scrollBottom();
 }
 
-function appendAssistantMessage(harness, model, content) {
-  const bubble = document.createElement("div");
-  bubble.className = "agent-msg-bubble";
+function appendAssistantMessage(harness, model, content, tokens) {
+  const row = document.createElement("div");
+  row.className = "msg-row assistant";
 
-  let renderedContent = formatMarkdown(content);
+  let renderedContent = formatContent(content);
 
-  // If content contains a decision prompt question, automatically inject clickable decision chips!
-  if (content.includes("می‌خوای") || content.includes("چیکار کنم") || content.includes("کدوم مسیر")) {
+  // If response has a question or decision, render interactive Apple Decision Chips!
+  if (content.includes("می‌خوای") || content.includes("چیکار کنم") || content.includes("گزینه")) {
     renderedContent += `
-      <div class="interactive-decision-box">
-        <div class="decision-prompt-title">می‌خوای چیکار کنم؟</div>
-        <div class="decision-options-group">
-          <button class="decision-chip" data-response="تایید و اجرای این مسیر"><span class="chip-text">✔ بله، همین مسیر رو ادامه بده</span></button>
-          <button class="decision-chip" data-response="بررسی گزینه‌های جایگزین"><span class="chip-text">🔍 گزینه‌های جایگزین رو بررسی کن</span></button>
+      <div class="decision-card">
+        <div class="decision-title">اقدام بعدی را انتخاب کنید:</div>
+        <div class="decision-chips-list">
+          <button class="decision-action-btn" data-prompt="تایید و ادامه همین مسیر">✔ تایید و ادامه همین مسیر</button>
+          <button class="decision-action-btn" data-prompt="بررسی گزینه‌های جایگزین">🔍 بررسی گزینه‌های جایگزین</button>
         </div>
       </div>
     `;
   }
 
-  bubble.innerHTML = `
-    <div class="agent-content-area">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:11.5px;color:var(--text-muted);">
-        <span style="color:var(--claude-accent);font-weight:600;">${harness.toUpperCase()}</span>
-        <span>&bull;</span>
-        <span>${model || 'Claude Code Studio'}</span>
-      </div>
-      ${renderedContent}
+  // If response contains tool steps or logs, wrap in Collapsible Step Drawer
+  if (content.includes("```") && content.length > 600) {
+    // Already structured
+  }
+
+  // Update token metric counters
+  if (tokens) {
+    totalTokens.input += tokens.input || 0;
+    totalTokens.output += tokens.output || 0;
+    updateContextMetrics();
+  }
+
+  row.innerHTML = `
+    <div class="msg-header-tag">
+      <span class="tag-badge ${harness}">${harness.toUpperCase()}</span>
+      <span style="color:var(--text-3);font-size:11px;">${model || ''}</span>
     </div>
+    <div class="msg-card">${renderedContent}</div>
   `;
 
-  messagesContainer.appendChild(bubble);
-  setupDecisionChips();
-  scrollChatBottom();
+  chatViewport.appendChild(row);
+  attachDecisionHandlers();
+  scrollBottom();
 }
 
-function showLiveThinkingIndicator(target) {
-  let indicator = document.getElementById("live-stream-indicator");
-  if (!indicator) {
-    indicator = document.createElement("div");
-    indicator.id = "live-stream-indicator";
-    indicator.className = "agent-msg-bubble";
-    indicator.innerHTML = `
-      <div class="tool-execution-drawer" style="padding:10px 14px;display:flex;align-items:center;gap:10px;">
-        <span class="spark-icon">✨</span>
-        <span style="font-size:12.5px;color:var(--text-sub);">Thinking with ${target}…</span>
+function showRoutingBanner(targets) {
+  let banner = document.getElementById("live-routing-banner");
+  if (!banner) {
+    banner = document.createElement("div");
+    banner.id = "live-routing-banner";
+    banner.className = "msg-row assistant";
+    banner.innerHTML = `
+      <div class="msg-card" style="padding:10px 16px;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-2);">
+        <span style="display:inline-block;animation:spin 1s linear infinite;">⏳</span>
+        <span>Routing to <strong>${targets.join(", ").toUpperCase()}</strong>…</span>
       </div>
     `;
-    messagesContainer.appendChild(indicator);
-    scrollChatBottom();
+    chatViewport.appendChild(banner);
+    scrollBottom();
   }
 }
 
-function removeLiveThinkingIndicator() {
-  document.getElementById("live-stream-indicator")?.remove();
+function removeRoutingBanner() {
+  document.getElementById("live-routing-banner")?.remove();
 }
 
-function updateThinkingBanner(text) {
-  if (thinkingText) {
-    thinkingText.textContent = text;
+function appendDebateRoundBanner(round, total) {
+  const banner = document.createElement("div");
+  banner.className = "msg-row assistant";
+  banner.style.textAlign = "center";
+  banner.innerHTML = `
+    <div style="font-size:12px;font-weight:600;color:var(--heat);padding:6px 14px;background:rgba(255,107,0,0.08);border-radius:20px;display:inline-block;margin:6px auto;">
+      🎭 Multi-Agent Debate — Round ${round} of ${total}
+    </div>
+  `;
+  chatViewport.appendChild(banner);
+  scrollBottom();
+}
+
+function appendSystemNotice(text) {
+  const row = document.createElement("div");
+  row.className = "msg-row assistant";
+  row.innerHTML = `
+    <div class="msg-card" style="font-size:13px;color:var(--text-2);background:#fafafc;">
+      ${esc(text)}
+    </div>
+  `;
+  chatViewport.appendChild(row);
+  scrollBottom();
+}
+
+function updateContextMetrics() {
+  const currentK = Math.round((totalTokens.input + totalTokens.output) / 1000);
+  const totalDisplay = `${320 + currentK}k / 1M (${Math.min(32 + Math.round(currentK / 10), 100)}%)`;
+  inspectorSummaryText.textContent = totalDisplay;
+  popoverTotalMetric.textContent = totalDisplay;
+  metricMsgs.textContent = `${270 + currentK}k`;
+}
+
+function scrollBottom() {
+  chatViewport.scrollTop = chatViewport.scrollHeight;
+}
+
+function setSending(isSending) {
+  sendBtn.disabled = isSending;
+  messageTextarea.disabled = isSending;
+  if (!isSending) messageTextarea.focus();
+}
+
+async function clearChat() {
+  if (!confirm("Clear all conversation history?")) return;
+  await fetch("/api/history", { method: "DELETE" });
+  chatViewport.innerHTML = "";
+  totalTokens = { input: 0, output: 0 };
+  inspectorSummaryText.textContent = "319k / 1M (32%)";
+  appendSystemNotice("Conversation history cleared.");
+}
+btnClearChat.addEventListener("click", clearChat);
+
+
+// ── Providers View ─────────────────────────────────────────────────────────
+async function loadProviders() {
+  try {
+    const res = await fetch("/api/providers");
+    const data = await res.json();
+    providersStack.innerHTML = "";
+
+    (data.providers || []).forEach(p => {
+      const panel = document.createElement("div");
+      panel.className = "prov-item-panel";
+      panel.innerHTML = `
+        <div class="prov-panel-left">
+          <div class="prov-avatar-box">${p.id === 'claude' ? '✳️' : '⚡'}</div>
+          <div>
+            <div class="prov-title-text">${p.name}</div>
+            <div class="prov-desc-text">${p.description}</div>
+          </div>
+        </div>
+        <div>
+          <span style="font-size:11.5px;font-weight:600;color:${p.isActive ? 'var(--live)' : 'var(--text-3)'}">
+            ● ${p.isActive ? 'Active (Ready)' : 'Standby'}
+          </span>
+        </div>
+      `;
+      providersStack.appendChild(panel);
+    });
+  } catch (err) {
+    console.error(err);
   }
 }
 
-function scrollChatBottom() {
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
-}
 
-function setSubmitting(isSubmitting) {
-  studioSubmitBtn.disabled = isSubmitting;
-  studioTextarea.disabled = isSubmitting;
-  if (!isSubmitting) studioTextarea.focus();
-}
-
-// ── Submit Input Form ──────────────────────────────────────────────────────
-studioChatForm.addEventListener("submit", (e) => {
-  e.preventDefault();
-  const text = studioTextarea.value.trim();
-  if (!text) return;
-
-  sendUserMessage(text);
-  studioTextarea.value = "";
-  studioTextarea.style.height = "auto";
-});
-
-studioTextarea.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    studioChatForm.requestSubmit();
-  }
-});
-
-studioTextarea.addEventListener("input", () => {
-  studioTextarea.style.height = "auto";
-  studioTextarea.style.height = Math.min(studioTextarea.scrollHeight, 180) + "px";
-});
-
-
-// ── Markdown Formatter ─────────────────────────────────────────────────────
-function formatMarkdown(text) {
-  return escHtml(text)
+// ── Helpers ─────────────────────────────────────────────────────────────────
+function formatContent(text) {
+  return esc(text)
     .replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
       `<pre><code class="language-${lang}">${code.trim()}</code></pre>`)
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\n/g, "<br>");
 }
 
-function escHtml(str) {
+function esc(str) {
   return String(str || "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -433,6 +377,5 @@ function escHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
-
-// ── Initialize ─────────────────────────────────────────────────────────────
+// ── Start ───────────────────────────────────────────────────────────────────
 initWebSocket();

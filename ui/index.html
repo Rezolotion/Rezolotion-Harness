@@ -1,524 +1,233 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Claude Code Studio — Rezolotion Harness</title>
+  <title>Rezolotion Harness — Meta-Harness Orchestrator</title>
   <link rel="stylesheet" href="/static/css/style.css" />
 </head>
-<body class="studio-body">
+<body>
 
-  <!-- ══════════════════════════════════════════════════════════════════════════
-       3-COLUMN CLAUDE CODE STUDIO LAYOUT
-  ══════════════════════════════════════════════════════════════════════════ -->
-  <div class="studio-container">
+  <div class="apple-shell">
 
-    <!-- ── COLUMN 1: LEFT SIDEBAR (Navigation & Projects) ── -->
-    <aside class="left-sidebar" id="left-sidebar">
-      <!-- Window & Mode Controls -->
-      <div class="sidebar-top-bar">
-        <div class="window-nav-controls">
-          <button class="win-btn win-close" title="Close"></button>
-          <button class="win-btn win-min" title="Minimize"></button>
-          <button class="win-btn win-max" title="Maximize"></button>
-        </div>
-        <div class="top-nav-icons">
-          <button class="icon-nav-btn" id="btn-sidebar-chat" title="Chat">💬</button>
-          <button class="icon-nav-btn" id="btn-sidebar-code" title="Code IDE">&lt;/&gt;</button>
+    <!-- ── Left Sidebar (Apple Minimalist Glass) ── -->
+    <aside class="apple-sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-logo">⚡</div>
+        <div class="brand-meta">
+          <span class="brand-title">Rezolotion</span>
+          <span class="brand-sub">Meta-Harness</span>
         </div>
       </div>
 
-      <!-- Main Navigation Menu -->
-      <div class="primary-nav-menu">
-        <button class="primary-nav-item active" id="nav-btn-new-chat">
-          <span class="nav-icon">＋</span>
-          <span>New</span>
+      <nav class="sidebar-menu">
+        <button class="menu-btn active" id="menu-btn-chat">
+          <span class="menu-icon">💬</span>
+          <span>Unified Chat</span>
         </button>
-        <button class="primary-nav-item" id="nav-btn-artifacts">
-          <span class="nav-icon">📦</span>
-          <span>Artifacts</span>
+        <button class="menu-btn" id="menu-btn-providers">
+          <span class="menu-icon">🔌</span>
+          <span>Harness Providers</span>
+          <span class="badge-count" id="badge-active-count">2</span>
         </button>
-        <button class="primary-nav-item" id="nav-btn-routines">
-          <span class="nav-icon">⚡</span>
-          <span>Routines</span>
-        </button>
-        <button class="primary-nav-item" id="nav-btn-customize">
-          <span class="nav-icon">⚙️</span>
-          <span>Customize</span>
-        </button>
-        <button class="primary-nav-item" id="nav-btn-more">
-          <span class="nav-icon">⋯</span>
-          <span>More</span>
-        </button>
-      </div>
+      </nav>
 
-      <!-- Projects / Workspaces Section (Image 1 & 4) -->
-      <div class="sidebar-projects-section">
-        <div class="project-header">
-          <span class="project-title" id="current-project-name">jira-Proj</span>
-          <div class="project-header-actions">
-            <button class="tiny-icon-btn" title="New Session">＋</button>
-            <button class="tiny-icon-btn" title="Search Project">🔍</button>
-            <button class="tiny-icon-btn" id="btn-project-filter" title="Filter &amp; Sort">⚙</button>
+      <!-- Active Harnesses Status (Apple Unified List) -->
+      <div class="sidebar-section">
+        <div class="section-title">Active Harnesses</div>
+        <div class="harness-stack">
+          <!-- Claude Code -->
+          <div class="harness-row active" data-harness="claude">
+            <span class="h-dot claude-dot"></span>
+            <div class="h-info">
+              <span class="h-name">Claude Code</span>
+              <span class="h-tag">Native Official CLI</span>
+            </div>
+            <span class="h-status-pill">Safe</span>
           </div>
-        </div>
 
-        <div class="session-list" id="session-list">
-          <div class="session-item active">
-            <span class="session-dot">●</span>
-            <span class="session-label">بررسی مشکل Jira</span>
+          <!-- AntiGravity -->
+          <div class="harness-row active" data-harness="antigravity">
+            <span class="h-dot agy-dot"></span>
+            <div class="h-info">
+              <span class="h-name">AntiGravity</span>
+              <span class="h-tag">Google Session</span>
+            </div>
+            <span class="h-status-pill">Ready</span>
           </div>
-          <div class="session-category-label">Other</div>
-          <div class="session-item">
-            <span class="session-icon">📁</span>
-            <span class="session-label">Zabbix dashboards to Grafana migration</span>
+
+          <!-- OpenAI Codex -->
+          <div class="harness-row" data-harness="codex">
+            <span class="h-dot codex-dot"></span>
+            <div class="h-info">
+              <span class="h-name">OpenAI Codex</span>
+              <span class="h-tag">Developer Models</span>
+            </div>
+            <span class="h-status-pill idle">Standby</span>
           </div>
         </div>
       </div>
 
-      <!-- Profile & Plan Footer -->
-      <div class="sidebar-profile-footer">
-        <div class="profile-info">
-          <div class="profile-avatar">V</div>
-          <div class="profile-meta">
-            <div class="profile-name">Vihaan <span class="badge-plan">&bull; Pro</span></div>
-          </div>
+      <!-- Quick Commands Reference -->
+      <div class="sidebar-section">
+        <div class="section-title">Routing Commands</div>
+        <div class="quick-hints">
+          <div class="hint-item" data-insert="@claude "><code>@claude</code> Claude Code</div>
+          <div class="hint-item" data-insert="@agy "><code>@agy</code> AntiGravity</div>
+          <div class="hint-item" data-insert="@debate @claude @agy "><code>@debate</code> Multi-Agent Debate</div>
+          <div class="hint-item" data-insert="@all "><code>@all</code> Broadcast to All</div>
         </div>
-        <button class="icon-nav-btn" id="btn-open-settings" title="Settings">⚙</button>
+      </div>
+
+      <div class="sidebar-bottom">
+        <button id="btn-clear-chat" class="btn-clear">Clear Conversation</button>
+        <div class="live-indicator">
+          <span class="live-pulse"></span>
+          <span id="gateway-status">Local Engine Connected</span>
+        </div>
       </div>
     </aside>
 
-    <!-- ── COLUMN 2: CENTER MAIN (Chat, Tabs, Rich Editor) ── -->
-    <main class="center-main" id="center-main">
+    <!-- ── Center Main Workspace ── -->
+    <main class="apple-workspace">
 
-      <!-- View A: Chat & Workspace View -->
-      <div class="studio-view active" id="studio-chat-view">
-        <!-- Top Project Tabs Bar -->
-        <header class="workspace-tabs-bar">
-          <div class="tabs-list">
-            <div class="tab-item active">
-              <span class="tab-icon">💬</span>
-              <span class="tab-title">بررسی مشکل Jira</span>
-              <span class="tab-close">&times;</span>
+      <!-- ══════════════════════════════════════════════════════════════
+           VIEW 1: CHAT INTERFACE
+      ══════════════════════════════════════════════════════════════ -->
+      <section id="view-chat" class="content-view active">
+        <!-- Sticky Frosted Glass Topbar -->
+        <header class="glass-topbar">
+          <div class="topbar-meta">
+            <h1 class="topbar-heading">Team Orchestrator</h1>
+            <div class="active-agents-pills">
+              <span class="agent-pill claude">🟠 Claude Code</span>
+              <span class="agent-pill agy">🟢 AntiGravity</span>
             </div>
-            <div class="tab-item">
-              <span class="tab-icon">📁</span>
-              <span class="tab-title">jira-Proj</span>
-              <span class="tab-close">&times;</span>
-            </div>
-            <button class="tab-add-btn">＋</button>
           </div>
 
-          <div class="tabs-actions">
-            <button class="icon-nav-btn" id="btn-toggle-right-sidebar" title="Toggle Background Tasks">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <line x1="15" y1="3" x2="15" y2="21"></line>
-              </svg>
+          <div class="topbar-actions">
+            <!-- Context Window & Token Inspector Button (Inspired by Claude Studio) -->
+            <button id="btn-open-inspector" class="btn-glass-inspector" title="Context & Quota Inspector">
+              <div class="inspector-bar">
+                <div class="inspector-fill" style="width: 32%"></div>
+              </div>
+              <span id="inspector-summary-text">319k / 1M (32%)</span>
             </button>
           </div>
         </header>
 
-        <!-- Messages Flow -->
-        <div class="messages-container" id="messages-container">
-
-          <!-- Example Rich Interactive Claude Card matching Image 1 -->
-          <div class="agent-msg-bubble">
-            <div class="agent-content-area">
-              <p>اسنپ‌شات‌ها از یه Jira دیگه نسخه <code>8.20.2</code> گرفته شدن و Workflowهاشون به سه افزونه تجاری وابسته هستن که روی سرور مبدا نصب نیستن.</p>
-
-              <!-- Markdown Table with Status Badges -->
-              <div class="table-responsive">
-                <table class="studio-table">
-                  <thead>
-                    <tr>
-                      <th>افزونه</th>
-                      <th>سازنده</th>
-                      <th>نسخه سازگار</th>
-                      <th>وضعیت</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>JEditor</td>
-                      <td>Bobronix</td>
-                      <td><code>jira11-3.26.10</code></td>
-                      <td><span class="badge-status success">✔ بیلد اختصاصی Jira 11، تأیید DC</span></td>
-                    </tr>
-                    <tr>
-                      <td>JMWE</td>
-                      <td>Appfire</td>
-                      <td><code>10.1.1</code></td>
-                      <td><span class="badge-status success">✔ تأیید DC</span></td>
-                    </tr>
-                    <tr>
-                      <td>JWT</td>
-                      <td>Decadis</td>
-                      <td><code>19.0.0</code></td>
-                      <td><span class="badge-status warning">⚠ تأیید Data Center ندارد</span></td>
-                    </tr>
-                  </tbody>
-                </table>
+        <!-- Messages Area -->
+        <div class="chat-viewport" id="chat-viewport">
+          <div class="welcome-card">
+            <div class="welcome-header">
+              <span class="welcome-icon">⚡</span>
+              <div>
+                <h2>Rezolotion Meta-Harness</h2>
+                <p>One unified chat orchestrating Claude Code and AntiGravity with shared context and zero ban risk.</p>
               </div>
-
-              <!-- Collapsible Tool Drawer 1 (Image 1 & 2) -->
-              <details class="tool-execution-drawer">
-                <summary class="drawer-summary">
-                  <span class="drawer-arrow">▶</span>
-                  <span>Extracted exact workflow elements needing removal</span>
-                </summary>
-                <div class="drawer-body">
-                  <pre><code>- JMWF: Related Issues Status Validator
-- JWT: Math Expressions Condition (ver3)
-- JEditor: 10 references resolved</code></pre>
-                </div>
-              </details>
-
-              <!-- Interactive Decision Prompt & Selectable Buttons (Exact Match to Image 1) -->
-              <div class="interactive-decision-box">
-                <div class="decision-prompt-title">می‌خوای چیکار کنم؟</div>
-                <div class="decision-options-group">
-                  <button class="decision-chip" data-response="کدوم مسیر؟ Missing Plugins برای رفع بلاکر">
-                    <span class="chip-text">کدوم مسیر؟ Missing Plugins برای رفع بلاکر</span>
-                  </button>
-                  <button class="decision-chip" data-response="من توی اولویت اول که میگم به اونا اکسپورت بگیرن پس فعلا صبر کنیم...">
-                    <span class="chip-text">من توی اولویت اول که میگم به اونا اکسپورت بگیرن پس فعلا صبر کنیم...</span>
-                  </button>
-                </div>
-              </div>
-
+            </div>
+            <div class="welcome-chips">
+              <button class="chip-cmd" data-cmd="@claude Analyze this codebase"><code>@claude</code> Analyze Code</button>
+              <button class="chip-cmd" data-cmd="@agy Optimize database queries"><code>@agy</code> Optimize Queries</button>
+              <button class="chip-cmd" data-cmd="@debate @claude @agy Should we use GraphQL or REST?"><code>@debate</code> Debate Architecture</button>
             </div>
           </div>
-
         </div>
 
-        <!-- Live Thinking Banner (Image 1 & 2) -->
-        <div class="thinking-status-bar" id="thinking-status-bar">
-          <span class="spark-icon">✨</span>
-          <span id="thinking-text">5m 6s &bull; 5.6k tokens &bull; Ready</span>
-        </div>
+        <!-- Sticky Frosted Glass Input Container -->
+        <div class="glass-input-container">
+          <!-- Slash Commands Suggestion Popover -->
+          <div class="slash-menu hidden" id="slash-menu">
+            <div class="slash-item" data-cmd="@claude "><span class="slash-badge">@claude</span> Direct message to Claude Code</div>
+            <div class="slash-item" data-cmd="@agy "><span class="slash-badge">@agy</span> Direct message to AntiGravity</div>
+            <div class="slash-item" data-cmd="@debate @claude @agy "><span class="slash-badge">@debate</span> Start multi-agent debate</div>
+            <div class="slash-item" data-cmd="@all "><span class="slash-badge">@all</span> Send to all connected harnesses</div>
+            <div class="slash-item" data-cmd="/clear"><span class="slash-badge">/clear</span> Clear chat history</div>
+          </div>
 
-        <!-- Rich Input Box (Image 1 & 2) -->
-        <div class="studio-input-wrapper">
-          <form class="studio-input-form" id="studio-chat-form">
+          <form id="chat-input-form" class="input-form">
             <textarea
-              id="studio-textarea"
-              placeholder="Type / for commands or @claude @agy..."
+              id="message-textarea"
+              placeholder="@claude, @agy, or type / for commands... (Shift+Enter for newline)"
               rows="1"
             ></textarea>
-
-            <div class="input-bottom-toolbar">
-              <div class="toolbar-left">
-                <button type="button" class="tool-btn" title="Add context / attachments">＋</button>
-                <button type="button" class="tool-btn" id="btn-thinking-toggle">⚡ Auto</button>
-              </div>
-
-              <div class="toolbar-right">
-                <!-- Model Picker Trigger Button (Image 2) -->
-                <button type="button" class="model-picker-trigger" id="btn-model-picker">
-                  <span id="current-active-model-label">Opus 5</span>
-                  <span class="chevron-down">▾</span>
-                </button>
-
-                <!-- Mode Badge -->
-                <span class="mode-badge">Ultracode</span>
-
-                <!-- Context Token Meter Trigger (Image 3) -->
-                <button type="button" class="token-meter-trigger" id="btn-context-inspector" title="View Context Window">
-                  <div class="mini-bar"><div class="mini-fill" style="width:32%"></div></div>
-                  <span>32%</span>
-                </button>
-
-                <!-- Run / Submit Button -->
-                <button type="submit" id="studio-submit-btn" class="studio-send-circle">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                  </svg>
-                </button>
-              </div>
-            </div>
+            <button type="submit" id="send-btn" class="apple-send-btn" title="Send Message">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
+            </button>
           </form>
         </div>
+      </section>
 
-      </div>
-
-      <!-- View B: Customize & Skills Store View (Exact Match to Image 5) -->
-      <div class="studio-view" id="studio-customize-view">
-        <header class="customize-header">
-          <h1 class="customize-title">Customize</h1>
-          <div class="customize-tabs-bar">
-            <div class="tab-group-left">
-              <button class="cust-tab active" data-cust-tab="skills">Skills</button>
-              <button class="cust-tab" data-cust-tab="connectors">Connectors</button>
-              <button class="cust-tab" data-cust-tab="plugins">Plugins</button>
-            </div>
-            <div class="tab-group-right">
-              <button class="cust-tab" data-cust-tab="yours">Yours</button>
-              <button class="cust-tab active" data-cust-tab="discover">Discover</button>
-            </div>
-          </div>
-          <div class="customize-filter-row">
-            <div class="search-box">
-              <span class="search-icon">🔍</span>
-              <input type="text" placeholder="Search skills..." id="skills-search-input" />
-            </div>
-            <button class="btn-sort" title="Sort">⇅</button>
-            <button class="btn-add-menu">Add ▾</button>
+      <!-- ══════════════════════════════════════════════════════════════
+           VIEW 2: PROVIDERS & CONNECTIONS
+      ══════════════════════════════════════════════════════════════ -->
+      <section id="view-providers" class="content-view">
+        <header class="glass-topbar">
+          <div>
+            <h1 class="topbar-heading">Harness Connections</h1>
+            <p class="topbar-sub">Manage native CLI and cloud accounts</p>
           </div>
         </header>
 
-        <div class="skills-catalog-list" id="skills-catalog-list">
-          <!-- Populated from skills catalog -->
+        <div class="providers-scroll-area">
+          <div class="providers-stack" id="providers-stack">
+            <!-- Populated by JS -->
+          </div>
         </div>
-      </div>
+      </section>
 
     </main>
 
-    <!-- ── COLUMN 3: RIGHT SIDEBAR (Background Tasks - Image 1) ── -->
-    <aside class="right-sidebar" id="right-sidebar">
-      <div class="right-sidebar-header">
-        <span class="tasks-title">Background tasks</span>
-        <div class="tasks-header-actions">
-          <button class="tiny-icon-btn" id="btn-close-right-sidebar">&times;</button>
-        </div>
-      </div>
-
-      <div class="tasks-body">
-        <div class="task-summary-card">
-          <div class="task-card-row">
-            <span class="task-badge finished">Finished 24</span>
-            <span class="task-arrow">&gt;</span>
-          </div>
-        </div>
-
-        <div class="active-tasks-list" id="active-tasks-list">
-          <!-- Active Task Items -->
-        </div>
-      </div>
-    </aside>
-
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════════════════
-       MODEL PICKER POPOVER (Exact Match to Image 2)
+       APPLE LIQUID GLASS: CONTEXT & QUOTA INSPECTOR POPOVER
+       (Inspired by Claude Studio, redesigned in pure Apple aesthetic)
   ══════════════════════════════════════════════════════════════════════════ -->
-  <div class="studio-popover model-popover hidden" id="model-popover">
-    <div class="popover-menu">
-      <div class="popover-item" data-model="sonnet-5">
-        <span class="item-name">Sonnet 5</span>
-        <span class="item-shortcut">1</span>
-      </div>
-      <div class="popover-item disabled" data-model="fable-5.1">
-        <span class="item-name">Fable 5.1 <span class="sub-hint">Requires usage credits</span></span>
-      </div>
-      <div class="popover-item selected" data-model="opus-5">
-        <span class="item-name">Opus 5</span>
-        <span class="item-shortcut">3</span>
-      </div>
-      <div class="popover-item" data-model="haiku-4.5">
-        <span class="item-name">Haiku 4.5</span>
+  <div class="apple-popover hidden" id="context-popover">
+    <div class="popover-card">
+      <div class="popover-head">
+        <span class="popover-title">Context Window &amp; Quota</span>
+        <span class="popover-metric" id="popover-total-metric">319.6k / 1M (32%)</span>
       </div>
 
-      <!-- Submenu Trigger -->
-      <div class="popover-item has-submenu" id="more-models-trigger">
-        <span class="item-name">More models</span>
-        <span class="item-arrow">&gt;</span>
+      <!-- Segmented Multi-Color Progress Bar (Apple refined) -->
+      <div class="apple-seg-bar">
+        <div class="seg-item seg-msg" style="width: 27%" title="Messages 27%"></div>
+        <div class="seg-item seg-skills" style="width: 1%" title="Skills 1%"></div>
+        <div class="seg-item seg-tools" style="width: 2%" title="Tools 2%"></div>
+        <div class="seg-item seg-free" style="width: 70%" title="Free Space 70%"></div>
       </div>
 
-      <div class="popover-divider"></div>
-
-      <!-- Fast Mode Switch -->
-      <div class="popover-fast-mode-row">
-        <div class="fast-mode-labels">
-          <span class="fast-mode-title">Fast mode</span>
-          <span class="fast-mode-desc">Enable fast mode</span>
+      <div class="token-breakdown-list">
+        <div class="token-row">
+          <div class="t-label"><span class="dot-msg"></span> Messages</div>
+          <div class="t-val"><span id="metric-msgs">269.2k</span> <span class="pct">26.9%</span></div>
         </div>
-        <input type="checkbox" id="fast-mode-toggle" class="studio-switch" />
-      </div>
-    </div>
-
-    <!-- Submenu Flyout (Image 2) -->
-    <div class="popover-submenu hidden" id="more-models-submenu">
-      <div class="popover-item disabled">
-        <span class="item-name">Fable 5 <span class="sub-hint">Requires usage credits</span></span>
-      </div>
-      <div class="popover-item" data-model="opus-4.8"><span class="item-name">Opus 4.8</span></div>
-      <div class="popover-item" data-model="opus-4.7"><span class="item-name">Opus 4.7</span></div>
-      <div class="popover-item" data-model="opus-4.6"><span class="item-name">Opus 4.6</span></div>
-      <div class="popover-item" data-model="sonnet-4.6"><span class="item-name">Sonnet 4.6</span></div>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════════════════════════════════════════
-       CONTEXT WINDOW & QUOTA INSPECTOR POPOVER (Exact Match to Image 3)
-  ══════════════════════════════════════════════════════════════════════════ -->
-  <div class="studio-popover context-popover hidden" id="context-popover">
-    <div class="context-popover-content">
-      <!-- Header with Total & Percentage -->
-      <div class="context-header-row">
-        <span class="context-heading">Context window</span>
-        <span class="context-stat">319.6k / 1M (32%)</span>
-      </div>
-
-      <!-- Multi-Color Segmented Progress Bar -->
-      <div class="multi-progress-bar">
-        <div class="bar-seg seg-messages" style="width: 26.9%" title="Messages 26.9%"></div>
-        <div class="bar-seg seg-skills" style="width: 1.0%" title="Skills 1.0%"></div>
-        <div class="bar-seg seg-systools" style="width: 0.9%" title="System tools 0.9%"></div>
-        <div class="bar-seg seg-mcptools" style="width: 0.8%" title="MCP tools 0.8%"></div>
-        <div class="bar-seg seg-sysprompt" style="width: 0.4%" title="System prompt 0.4%"></div>
-        <div class="bar-seg seg-free" style="width: 65.0%" title="Free space 65.0%"></div>
-      </div>
-
-      <!-- Detailed Breakdown Rows -->
-      <div class="breakdown-list">
-        <div class="breakdown-row">
-          <div class="breakdown-left">
-            <span class="color-dot dot-messages"></span>
-            <span>Messages</span>
-          </div>
-          <div class="breakdown-right">
-            <span class="val-toks">269.2k</span>
-            <span class="val-pct">26.9%</span>
-          </div>
+        <div class="token-row">
+          <div class="t-label"><span class="dot-tools"></span> Tool Execution</div>
+          <div class="t-val"><span id="metric-tools">17.0k</span> <span class="pct">1.7%</span></div>
         </div>
-
-        <div class="breakdown-row">
-          <div class="breakdown-left">
-            <span class="color-dot dot-skills"></span>
-            <span>Skills</span>
-          </div>
-          <div class="breakdown-right">
-            <span class="val-toks">9.9k</span>
-            <span class="val-pct">1.0%</span>
-          </div>
-        </div>
-
-        <div class="breakdown-row">
-          <div class="breakdown-left">
-            <span class="color-dot dot-systools"></span>
-            <span>System tools</span>
-          </div>
-          <div class="breakdown-right">
-            <span class="val-toks">9.2k</span>
-            <span class="val-pct">0.9%</span>
-          </div>
-        </div>
-
-        <div class="breakdown-row">
-          <div class="breakdown-left">
-            <span class="color-dot dot-mcptools"></span>
-            <span>MCP tools</span>
-          </div>
-          <div class="breakdown-right">
-            <span class="val-toks">7.8k</span>
-            <span class="val-pct">0.8%</span>
-          </div>
-        </div>
-
-        <div class="breakdown-row">
-          <div class="breakdown-left">
-            <span class="color-dot dot-sysprompt"></span>
-            <span>System prompt</span>
-          </div>
-          <div class="breakdown-right">
-            <span class="val-toks">3.5k</span>
-            <span class="val-pct">0.4%</span>
-          </div>
-        </div>
-
-        <div class="breakdown-row">
-          <div class="breakdown-left">
-            <span class="color-dot dot-free"></span>
-            <span>Free space</span>
-          </div>
-          <div class="breakdown-right">
-            <span class="val-toks">650.4k</span>
-            <span class="val-pct">65.0%</span>
-          </div>
-        </div>
-
-        <div class="breakdown-row muted">
-          <div class="breakdown-left">
-            <span class="color-dot dot-deferred"></span>
-            <span>System tools (deferred)</span>
-          </div>
-          <div class="breakdown-right"><span class="val-toks">17.0k</span></div>
-        </div>
-
-        <div class="breakdown-row muted">
-          <div class="breakdown-left">
-            <span class="color-dot dot-deferred"></span>
-            <span>MCP tools (deferred)</span>
-          </div>
-          <div class="breakdown-right"><span class="val-toks">17.2k</span></div>
-        </div>
-
-        <div class="breakdown-row expander-row">
-          <span>&gt; MCP tools</span>
-          <span>25k &bull; 72</span>
+        <div class="token-row">
+          <div class="t-label"><span class="dot-free"></span> Free Capacity</div>
+          <div class="t-val"><span id="metric-free">713.8k</span> <span class="pct">71.4%</span></div>
         </div>
       </div>
 
-      <div class="popover-divider"></div>
+      <div class="popover-hairline"></div>
 
-      <!-- Plan Usage Limits -->
-      <div class="plan-limits-section">
-        <div class="plan-limits-title">Plan usage limits &bull; Pro &gt;</div>
-
-        <div class="limit-metric-box">
-          <div class="limit-metric-header">
-            <span>5-hour limit</span>
-            <span class="limit-metric-status">Resets in 56 min &bull; 61%</span>
-          </div>
-          <div class="single-progress-bar">
-            <div class="single-fill" style="width: 61%"></div>
-          </div>
+      <!-- Quota Tracker -->
+      <div class="quota-block">
+        <div class="quota-header">
+          <span>Active Plan: Pro</span>
+          <span class="quota-timer">Resets in 54 min</span>
         </div>
-
-        <div class="limit-metric-box">
-          <div class="limit-metric-header">
-            <span>Weekly &bull; all models</span>
-            <span class="limit-metric-status">Resets in 7 hr 46 min &bull; 15%</span>
-          </div>
-          <div class="single-progress-bar">
-            <div class="single-fill" style="width: 15%"></div>
-          </div>
+        <div class="single-bar">
+          <div class="single-bar-fill" style="width: 58%"></div>
         </div>
-
-        <div class="plan-details-link">See detailed breakdown &gt;</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════════════════════════════════════════
-       PROJECT FILTER POPUP (Exact Match to Image 4)
-  ══════════════════════════════════════════════════════════════════════════ -->
-  <div class="studio-popover filter-popover hidden" id="filter-popover">
-    <div class="popover-menu">
-      <div class="popover-item has-submenu">
-        <span class="item-name">Status</span>
-        <span class="item-val">Active &gt;</span>
-      </div>
-      <div class="popover-item has-submenu">
-        <span class="item-name">Environment</span>
-        <span class="item-val">All &gt;</span>
-      </div>
-      <div class="popover-item has-submenu">
-        <span class="item-name">Group by</span>
-        <span class="item-val">Folder &gt;</span>
-      </div>
-      <div class="popover-item has-submenu">
-        <span class="item-name">Sort by</span>
-        <span class="item-val">Last activity &gt;</span>
-      </div>
-      <div class="popover-divider"></div>
-      <div class="popover-item">
-        <span class="item-name">Show empty groups</span>
-      </div>
-      <div class="popover-item">
-        <span class="item-name">Show PR status</span>
-        <span class="item-check">✔</span>
       </div>
     </div>
   </div>
