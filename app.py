@@ -8,7 +8,7 @@ import os
 from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -37,6 +37,12 @@ async def root():
     html_path = os.path.join(ui_dir, "index.html")
     with open(html_path, "r", encoding="utf-8") as f:
         return f.read()
+
+
+@app.get("/favicon.ico")
+async def favicon():
+    fav_path = os.path.join(static_dir, "favicon.svg")
+    return FileResponse(fav_path, media_type="image/svg+xml")
 
 
 # ── Provider Metadata ────────────────────────────────────────────────────────
