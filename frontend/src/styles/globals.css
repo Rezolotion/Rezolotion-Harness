@@ -1,6 +1,23 @@
+/* Local fonts — no CDN. This tool must launch air-gapped. */
+@import "@fontsource/inter/300.css";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
+@import "@fontsource/jetbrains-mono/600.css";
+@import "@fontsource/vazirmatn/300.css";
+@import "@fontsource/vazirmatn/400.css";
+@import "@fontsource/vazirmatn/500.css";
+@import "@fontsource/vazirmatn/600.css";
+@import "@fontsource/vazirmatn/700.css";
+
 @import "tailwindcss";
 @import "./tokens.css";
 
+/* Single source of truth for Tailwind utilities (Tailwind v4 is CSS-first;
+   there is no tailwind.config.ts and no @config directive — see DESIGN.md §0). */
 @theme {
   --color-base: var(--bg-base);
   --color-surface: var(--bg-surface);
@@ -17,6 +34,7 @@
   --color-accent: var(--accent);
   --color-accent-fg: var(--accent-fg);
   --color-accent-muted: var(--accent-muted);
+  --color-ring: var(--ring);
 
   --color-destructive: var(--destructive);
   --color-destructive-fg: var(--destructive-fg);
@@ -32,6 +50,24 @@
 
   --shadow-overlay: var(--shadow-overlay);
 
+  /* Type scale — DESIGN.md §3, locked. Body default is text-base 14/22. */
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 13px;
+  --text-sm--line-height: 18px;
+  --text-base: 14px;
+  --text-base--line-height: 22px;
+  --text-md: 16px;
+  --text-md--line-height: 24px;
+  --text-lg: 20px;
+  --text-lg--line-height: 28px;
+  --text-xl: 24px;
+  --text-xl--line-height: 32px;
+
+  /* DESIGN.md section 5 — 150ms ease-out is the default for every transition. */
+  --default-transition-duration: 150ms;
+  --default-transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+
   --font-sans: 'Inter', 'Vazirmatn', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
   --font-persian: 'Vazirmatn', sans-serif;
@@ -45,9 +81,31 @@
     background-color: var(--bg-base);
     color: var(--fg);
     font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   }
   code, pre, kbd {
     font-family: var(--font-mono);
+  }
+
+  /* DESIGN.md §2 — outline, never box-shadow: box-shadow rings vanish in forced-colors mode. */
+  .focus-ring,
+  :where(a, button, input, textarea, select, [tabindex]):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /* DESIGN.md §5 — keep the fade, drop the movement. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 150ms !important;
+      scroll-behavior: auto !important;
+    }
+    *, *::before, *::after {
+      transition-property: opacity, color, background-color, border-color !important;
+    }
   }
 }
