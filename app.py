@@ -229,7 +229,7 @@ class CustomMCPRequest(BaseModel):
     name: str
     author: Optional[str] = "Custom"
     description: Optional[str] = "User-defined MCP Server"
-    icon: Optional[str] = "🔌"
+    icon: Optional[str] = "connector"
     category: Optional[str] = "custom"
     command: str
     envKeys: Optional[List[str]] = []

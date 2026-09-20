@@ -1002,92 +1002,58 @@ html, body {
 }
 
 .card-visual {
-  height: 120px;
+  height: 125px;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
+  overflow: hidden;
+}
+.card-artwork-svg {
+  display: block;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.creation-card:hover .card-artwork-svg {
+  transform: scale(1.05);
 }
 
-/* Docs Beta Visual (Deep Blue) */
+/* Docs Beta Visual (Deep Blue Gradient) */
 .docs-card .card-visual {
-  background: linear-gradient(135deg, #0d1b2a 0%, #1b263b 100%);
+  background: radial-gradient(circle at 50% 40%, #17263b 0%, #0b1320 100%);
 }
-.mock-doc {
-  width: 60px;
-  height: 75px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.doc-letter {
-  font-size: 16px;
-  font-weight: 800;
-  color: #60a5fa;
-  margin-bottom: 2px;
-}
-.doc-line { height: 3px; background: rgba(255, 255, 255, 0.25); border-radius: 2px; }
-.doc-line.short { width: 40%; }
-.doc-line.long  { width: 90%; }
-.doc-line.mid   { width: 65%; }
 
-/* Slides Beta Visual (Warm Amber) */
+/* Slides Beta Visual (Warm Amber Gradient) */
 .slides-card .card-visual {
-  background: linear-gradient(135deg, #2b1e0f 0%, #3d2b15 100%);
+  background: radial-gradient(circle at 50% 40%, #30200e 0%, #181007 100%);
 }
-.mock-slide {
-  width: 80px;
-  height: 55px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
-  padding: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.slide-header-bar {
-  width: 50%;
-  height: 4px;
-  background: #f59e0b;
-  border-radius: 2px;
-}
-.slide-content-split {
-  display: flex;
-  gap: 6px;
-  flex: 1;
-}
-.slide-box { flex: 1; background: rgba(255, 255, 255, 0.12); border-radius: 4px; }
-.slide-box-accent { width: 24px; background: rgba(245, 158, 11, 0.25); border-radius: 4px; }
 
-/* Design Beta Visual (Modern Purple) */
+/* Design Beta Visual (Modern Purple Gradient) */
 .design-card .card-visual {
-  background: linear-gradient(135deg, #1f142b 0%, #2e1c3e 100%);
+  background: radial-gradient(circle at 50% 40%, #2a173a 0%, #130b1c 100%);
 }
-.mock-phone {
-  width: 48px;
-  height: 80px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 10px;
-  padding: 6px 4px;
+
+.mode-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #30d158;
+  display: inline-block;
+  box-shadow: 0 0 6px rgba(48, 209, 88, 0.6);
+  margin-right: 4px;
+}
+
+.theme-icon-wrap {
   display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  align-items: center;
+  justify-content: center;
 }
-.phone-screen {
+
+.banner-title-row {
   display: flex;
-  flex-direction: column;
-  gap: 5px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
 }
-.phone-dot { width: 6px; height: 6px; border-radius: 50%; background: #a855f7; }
-.phone-bar { width: 70%; height: 3px; background: rgba(255, 255, 255, 0.3); border-radius: 2px; }
-.phone-bar-small { width: 40%; height: 3px; background: rgba(255, 255, 255, 0.2); border-radius: 2px; }
-.phone-home { width: 14px; height: 2px; background: rgba(255, 255, 255, 0.3); margin: 0 auto; border-radius: 1px; }
 
 .card-meta {
   padding: 10px 14px;
