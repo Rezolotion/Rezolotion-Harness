@@ -3,130 +3,263 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Rezolotion Harness</title>
+  <title>Rezolotion Harness — Meta-Harness Orchestrator</title>
   <link rel="stylesheet" href="/static/css/style.css" />
 </head>
 <body>
 
-  <!-- ══════════════════════════════════════════
-       LOGIN SCREEN
-  ══════════════════════════════════════════ -->
-  <div id="login-screen" class="screen">
-    <div class="login-wrap">
-      <div class="login-hero">
-        <div class="app-icon">⚡</div>
-        <h1 class="login-title">Rezolotion Harness</h1>
-        <p class="login-sub">Connect your AI team in one place</p>
-      </div>
+  <!-- ══════════════════════════════════════════════════════════════════════════
+       MAIN APP SHELL
+  ══════════════════════════════════════════════════════════════════════════ -->
+  <div class="app-layout">
 
-      <div class="login-card">
-        <h2 class="section-title">Connect a Harness</h2>
-        <p class="section-sub">Enter your API key for each harness you want to use. You can connect one or both.</p>
-
-        <!-- Claude -->
-        <div class="field-group">
-          <div class="field-label-row">
-            <span class="harness-dot claude"></span>
-            <label>Claude Code</label>
-            <span class="field-tag">Anthropic</span>
+    <!-- ── Left Sidebar Navigation ── -->
+    <aside class="app-sidebar">
+      <div class="sidebar-header">
+        <div class="brand">
+          <div class="brand-icon">⚡</div>
+          <div class="brand-text">
+            <span class="brand-name">Rezolotion</span>
+            <span class="brand-badge">Harness v0.2</span>
           </div>
-          <input type="password" id="claude-key" placeholder="sk-ant-…" autocomplete="off" />
-          <div class="field-hint">From <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a></div>
         </div>
-
-        <!-- AntiGravity / Gemini -->
-        <div class="field-group">
-          <div class="field-label-row">
-            <span class="harness-dot agy"></span>
-            <label>AntiGravity</label>
-            <span class="field-tag">Google Gemini</span>
-          </div>
-          <input type="password" id="agy-key" placeholder="AIzaSy…" autocomplete="off" />
-          <div class="field-hint">From <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com</a></div>
-        </div>
-
-        <div class="divider"></div>
-
-        <div class="field-group">
-          <div class="field-label-row">
-            <span class="harness-dot gateway"></span>
-            <label>API Gateway <span class="optional-tag">optional</span></label>
-          </div>
-          <input type="text" id="gateway-url" placeholder="http://localhost:4000/v1" autocomplete="off" />
-          <input type="password" id="gateway-key" placeholder="Gateway API key…" autocomplete="off" style="margin-top:8px" />
-          <div class="field-hint">LiteLLM, 9Router, or any OpenAI-compatible proxy</div>
-        </div>
-
-        <button class="btn-primary" id="connect-btn">Connect →</button>
-        <p class="privacy-note">🔒 Keys are stored only in your browser session. Never sent to any server other than the respective AI provider.</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════════
-       MAIN CHAT APP
-  ══════════════════════════════════════════ -->
-  <div id="app-screen" class="screen hidden">
-
-    <!-- Sidebar -->
-    <aside class="sidebar">
-      <div class="sidebar-top">
-        <div class="app-icon-sm">⚡</div>
-        <span class="sidebar-title">Harness</span>
-        <button id="btn-disconnect" class="btn-icon" title="Disconnect">↩</button>
       </div>
 
-      <div class="sidebar-section-label">Active Harnesses</div>
-      <div id="harness-list" class="harness-list"></div>
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-view="chat" id="nav-chat">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span>Chat</span>
+        </button>
 
-      <div class="sidebar-section-label" style="margin-top:auto">Shortcuts</div>
-      <div class="shortcut-list">
-        <div class="shortcut-row"><code>@claude</code> <span>Claude Code</span></div>
-        <div class="shortcut-row"><code>@agy</code> <span>AntiGravity</span></div>
-        <div class="shortcut-row"><code>@all</code> <span>Broadcast</span></div>
-        <div class="shortcut-row"><code>@debate @claude @agy</code> <span>Debate</span></div>
+        <button class="nav-item" data-view="providers" id="nav-providers">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+            <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+            <line x1="6" y1="6" x2="6.01" y2="6"></line>
+            <line x1="6" y1="18" x2="6.01" y2="18"></line>
+          </svg>
+          <span>Providers</span>
+          <span class="nav-badge" id="active-conns-badge">0</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-section">
+        <div class="section-heading">Connected Harnesses</div>
+        <div id="sidebar-harness-list" class="sidebar-harness-list">
+          <!-- Populated by JS -->
+        </div>
       </div>
 
-      <button id="btn-clear" class="btn-ghost-sm">Clear History</button>
+      <div class="sidebar-footer">
+        <button id="btn-clear-history" class="btn-sidebar">🗑 Clear History</button>
+        <div class="server-status">
+          <span class="status-pulse"></span>
+          <span id="gateway-status-text">Router: Connected</span>
+        </div>
+      </div>
     </aside>
 
-    <!-- Chat -->
-    <main class="chat-main">
-      <div class="chat-topbar">
-        <div class="chat-topbar-left">
-          <span class="topbar-title">AI Team Chat</span>
-          <span class="live-dot"></span>
-          <span class="topbar-status" id="ws-status">Connecting…</span>
-        </div>
-        <div id="token-counter" class="token-counter"></div>
-      </div>
+    <!-- ── Main Workspace Area ── -->
+    <main class="app-main">
 
-      <div class="messages" id="messages">
-        <div class="welcome-card">
-          <div class="welcome-icon">👋</div>
-          <div class="welcome-text">
-            <strong>Your AI team is ready.</strong><br>
-            Use <code>@claude</code>, <code>@agy</code>, <code>@all</code>, or start a
-            <code>@debate @claude @agy topic…</code>
+      <!-- ═════════════════════════════════════════════════════════════════════
+           VIEW 1: CHAT INTERFACE
+      ═════════════════════════════════════════════════════════════════════ -->
+      <section id="view-chat" class="view-panel active">
+        <header class="topbar">
+          <div class="topbar-left">
+            <h1 class="topbar-title">AI Team Chat</h1>
+            <span class="topbar-hint">Use <code>@claude</code>, <code>@agy</code>, <code>@all</code>, or <code>@debate @claude @agy</code></span>
+          </div>
+          <div class="topbar-right">
+            <div id="token-summary" class="token-counter"></div>
+          </div>
+        </header>
+
+        <div class="chat-messages" id="chat-messages">
+          <div class="welcome-banner">
+            <div class="welcome-icon">⚡</div>
+            <div class="welcome-body">
+              <h2>Rezolotion Meta-Harness</h2>
+              <p>Your unified workspace connecting Claude Code, AntiGravity, and OpenAI.</p>
+              <div class="quick-commands">
+                <div class="cmd-chip" data-cmd="@claude "><code>@claude</code> Claude Code</div>
+                <div class="cmd-chip" data-cmd="@agy "><code>@agy</code> AntiGravity</div>
+                <div class="cmd-chip" data-cmd="@debate @claude @agy "><code>@debate</code> Debate Mode</div>
+                <div class="cmd-chip" data-cmd="@all "><code>@all</code> Broadcast</div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="input-bar">
-        <textarea
-          id="message-input"
-          placeholder="@claude write a function… or @debate @claude @agy should we use Redis?"
-          rows="1"
-          autocomplete="off"
-        ></textarea>
-        <button type="button" id="send-btn">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M14 8L2 2l2 6-2 6 12-6z" fill="currentColor"/>
-          </svg>
-        </button>
-      </div>
+        <form class="chat-input-container" id="chat-form">
+          <textarea
+            id="chat-textarea"
+            placeholder="Type @claude or @agy to route… (Shift+Enter for newline)"
+            rows="1"
+          ></textarea>
+          <button type="submit" id="chat-send-btn" class="send-btn" aria-label="Send">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
+        </form>
+      </section>
+
+      <!-- ═════════════════════════════════════════════════════════════════════
+           VIEW 2: PROVIDERS MANAGEMENT (9Router Style)
+      ═════════════════════════════════════════════════════════════════════ -->
+      <section id="view-providers" class="view-panel">
+
+        <!-- ── Sub-view A: Providers Overview ── -->
+        <div id="providers-list-view">
+          <header class="topbar">
+            <div class="topbar-left">
+              <h1 class="topbar-title">Model Providers</h1>
+              <span class="topbar-sub">Manage OAuth connections and model endpoints</span>
+            </div>
+          </header>
+
+          <div class="providers-grid-container">
+            <div id="providers-grid" class="providers-grid">
+              <!-- Rendered by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Sub-view B: Provider Detail View (Matching 9Router Screen) ── -->
+        <div id="provider-detail-view" class="hidden">
+          <header class="detail-topbar">
+            <button id="btn-back-to-providers" class="back-link">
+              ← Back to Providers
+            </button>
+          </header>
+
+          <div class="provider-detail-content">
+            <!-- Provider Title Header -->
+            <div class="provider-header-row">
+              <div class="provider-avatar" id="detail-avatar"></div>
+              <div class="provider-header-meta">
+                <div class="provider-title-wrap">
+                  <h1 id="detail-title" class="provider-detail-title">Claude Code</h1>
+                  <a href="https://claude.ai" target="_blank" class="learn-more-link">Sign up / Learn more ↗</a>
+                </div>
+                <div id="detail-connections-count" class="provider-conns-count">0 connections</div>
+              </div>
+            </div>
+
+            <!-- Risk Notice (Exact 9Router Style) -->
+            <div id="detail-risk-notice" class="risk-notice-banner">
+              <span class="risk-icon">⚠️</span>
+              <span class="risk-text" id="detail-risk-text">
+                Risk Notice: This provider uses a subscription/OAuth session not officially licensed for proxy/router use. Account may be restricted or banned. Use at your own risk.
+              </span>
+            </div>
+
+            <!-- Connections Card (Exact 9Router Style) -->
+            <div class="surface-card connections-card">
+              <div class="card-header">
+                <div class="card-title">Connections</div>
+                <div class="card-controls">
+                  <div class="toggle-control">
+                    <label for="round-robin-switch">Round Robin</label>
+                    <input type="checkbox" id="round-robin-switch" checked class="switch" />
+                  </div>
+                  <div class="sticky-control">
+                    <span>Sticky: 1</span>
+                  </div>
+                  <button id="btn-open-add-connection" class="btn-accent-orange">
+                    + Add Connection
+                  </button>
+                </div>
+              </div>
+
+              <div id="connections-container" class="connections-list">
+                <!-- Connections or Empty Lock State -->
+              </div>
+            </div>
+
+            <!-- Available Models Card (Exact 9Router Style) -->
+            <div class="surface-card models-card">
+              <div class="card-header">
+                <div class="card-title">Available Models</div>
+                <div class="card-controls">
+                  <div class="select-control">
+                    <label>Thinking:</label>
+                    <select id="thinking-select">
+                      <option value="auto">Auto</option>
+                      <option value="high">High</option>
+                      <option value="low">Low</option>
+                    </select>
+                  </div>
+                  <button class="btn-ghost-sm" id="btn-disable-all-models">Disable All</button>
+                </div>
+              </div>
+
+              <div id="models-grid" class="models-grid">
+                <!-- Model Cards Rendered by JS -->
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </section>
+
     </main>
+  </div>
 
+  <!-- ══════════════════════════════════════════════════════════════════════════
+       OAUTH CONNECT MODAL (Matching Screenshot 1)
+  ══════════════════════════════════════════════════════════════════════════ -->
+  <div id="oauth-modal" class="modal-overlay hidden">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2 id="modal-provider-title">Connect Claude Code</h2>
+        <button id="modal-close-btn" class="modal-close">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Spinner & Status -->
+        <div class="popup-waiting-banner">
+          <div class="spinner"></div>
+          <span id="popup-status-text">Waiting for popup authorization...</span>
+        </div>
+
+        <div class="manual-divider">
+          <span>OR PASTE CALLBACK URL MANUALLY</span>
+        </div>
+
+        <!-- Step 1 -->
+        <div class="oauth-step">
+          <label class="step-label">Step 1: Open this URL in your browser</label>
+          <div class="copy-input-row">
+            <input type="text" id="modal-auth-url" readonly />
+            <button type="button" id="btn-copy-auth-url" class="btn-secondary">Copy</button>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="oauth-step">
+          <label class="step-label">Step 2: Paste the callback URL here</label>
+          <div class="step-hint">After authorization, copy the full URL from your browser.</div>
+          <input
+            type="text"
+            id="modal-callback-input"
+            placeholder="http://localhost:20128/callback?code=..."
+            autocomplete="off"
+          />
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" id="btn-connect-oauth" class="btn-modal-connect" disabled>Connect</button>
+        <button type="button" id="btn-cancel-oauth" class="btn-modal-cancel">Cancel</button>
+      </div>
+    </div>
   </div>
 
   <script src="/static/js/app.js"></script>
