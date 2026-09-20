@@ -1,29 +1,40 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Rezolotion Harness — Meta-Harness Orchestrator</title>
+  <title>Rezolotion Harness — Studio Edition</title>
   <link rel="stylesheet" href="/static/css/style.css" />
 </head>
 <body>
 
   <div class="apple-shell">
 
-    <!-- ── Left Sidebar (Apple Minimalist Glass) ── -->
+    <!-- ── Left Sidebar (Obsidian Glass Minimalist) ── -->
     <aside class="apple-sidebar">
       <div class="sidebar-brand">
         <div class="brand-logo">⚡</div>
         <div class="brand-meta">
           <span class="brand-title">Rezolotion</span>
-          <span class="brand-sub">Meta-Harness</span>
+          <span class="brand-sub">Studio Meta-Harness</span>
         </div>
       </div>
 
+      <!-- Navigation Menu -->
       <nav class="sidebar-menu">
         <button class="menu-btn active" id="menu-btn-chat">
           <span class="menu-icon">💬</span>
           <span>Unified Chat</span>
+        </button>
+        <button class="menu-btn" id="menu-btn-artifacts">
+          <span class="menu-icon">🪄</span>
+          <span>Artifacts</span>
+          <span class="badge-count" id="badge-artifacts-count">3</span>
+        </button>
+        <button class="menu-btn" id="menu-btn-customize">
+          <span class="menu-icon">🎛️</span>
+          <span>Customize</span>
+          <span class="badge-count" id="badge-skills-count">10</span>
         </button>
         <button class="menu-btn" id="menu-btn-providers">
           <span class="menu-icon">🔌</span>
@@ -32,7 +43,7 @@
         </button>
       </nav>
 
-      <!-- Active Harnesses Status (Apple Unified List) -->
+      <!-- Active Harnesses Status -->
       <div class="sidebar-section">
         <div class="section-title">Active Harnesses</div>
         <div class="harness-stack">
@@ -41,7 +52,7 @@
             <span class="h-dot claude-dot"></span>
             <div class="h-info">
               <span class="h-name">Claude Code</span>
-              <span class="h-tag">Native Official CLI</span>
+              <span class="h-tag">Native CLI (~/.local/bin/claude)</span>
             </div>
             <span class="h-status-pill">Safe</span>
           </div>
@@ -51,7 +62,7 @@
             <span class="h-dot agy-dot"></span>
             <div class="h-info">
               <span class="h-name">AntiGravity</span>
-              <span class="h-tag">Google Session</span>
+              <span class="h-tag">Google Gemini Session</span>
             </div>
             <span class="h-status-pill">Ready</span>
           </div>
@@ -72,14 +83,19 @@
       <div class="sidebar-section">
         <div class="section-title">Routing Commands</div>
         <div class="quick-hints">
-          <div class="hint-item" data-insert="@claude "><code>@claude</code> Claude Code</div>
+          <div class="hint-item" data-insert="@claude "><code>@claude</code> Claude Code (Native)</div>
           <div class="hint-item" data-insert="@agy "><code>@agy</code> AntiGravity</div>
           <div class="hint-item" data-insert="@debate @claude @agy "><code>@debate</code> Multi-Agent Debate</div>
           <div class="hint-item" data-insert="@all "><code>@all</code> Broadcast to All</div>
         </div>
       </div>
 
+      <!-- Sidebar Bottom & Theme Switcher -->
       <div class="sidebar-bottom">
+        <button id="theme-toggle-btn" class="theme-toggle-btn" title="Toggle Dark / Light Theme">
+          <span id="theme-icon">🌙</span>
+          <span id="theme-text">Dark Mode</span>
+        </button>
         <button id="btn-clear-chat" class="btn-clear">Clear Conversation</button>
         <div class="live-indicator">
           <span class="live-pulse"></span>
@@ -100,13 +116,13 @@
           <div class="topbar-meta">
             <h1 class="topbar-heading">Team Orchestrator</h1>
             <div class="active-agents-pills">
-              <span class="agent-pill claude">🟠 Claude Code</span>
+              <span class="agent-pill claude">🟠 Claude Code (Native)</span>
               <span class="agent-pill agy">🟢 AntiGravity</span>
             </div>
           </div>
 
           <div class="topbar-actions">
-            <!-- Context Window & Token Inspector Button (Inspired by Claude Studio) -->
+            <!-- Context Window & Quota Inspector -->
             <button id="btn-open-inspector" class="btn-glass-inspector" title="Context & Quota Inspector">
               <div class="inspector-bar">
                 <div class="inspector-fill" style="width: 32%"></div>
@@ -122,47 +138,300 @@
             <div class="welcome-header">
               <span class="welcome-icon">⚡</span>
               <div>
-                <h2>Rezolotion Meta-Harness</h2>
-                <p>One unified chat orchestrating Claude Code and AntiGravity with shared context and zero ban risk.</p>
+                <h2>Rezolotion Studio Meta-Harness</h2>
+                <p>Unified AI orchestrating official native Claude Code and Google AntiGravity with shared SQLite memory and zero ban risk.</p>
               </div>
             </div>
             <div class="welcome-chips">
-              <button class="chip-cmd" data-cmd="@claude Analyze this codebase"><code>@claude</code> Analyze Code</button>
-              <button class="chip-cmd" data-cmd="@agy Optimize database queries"><code>@agy</code> Optimize Queries</button>
-              <button class="chip-cmd" data-cmd="@debate @claude @agy Should we use GraphQL or REST?"><code>@debate</code> Debate Architecture</button>
+              <button class="chip-cmd" data-cmd="@claude Review codebase architecture"><code>@claude</code> Review Codebase</button>
+              <button class="chip-cmd" data-cmd="@agy Optimize query execution plan"><code>@agy</code> Optimize Queries</button>
+              <button class="chip-cmd" data-cmd="@debate @claude @agy Best way to connect MCP servers?"><code>@debate</code> Debate Architecture</button>
             </div>
           </div>
         </div>
 
-        <!-- Sticky Frosted Glass Input Container -->
+        <!-- Sticky Studio Input Container (Image 1 Style) -->
         <div class="glass-input-container">
-          <!-- Slash Commands Suggestion Popover -->
+          <!-- Slash Commands Popover -->
           <div class="slash-menu hidden" id="slash-menu">
-            <div class="slash-item" data-cmd="@claude "><span class="slash-badge">@claude</span> Direct message to Claude Code</div>
+            <div class="slash-item" data-cmd="@claude "><span class="slash-badge">@claude</span> Direct message to Claude Code (Native)</div>
             <div class="slash-item" data-cmd="@agy "><span class="slash-badge">@agy</span> Direct message to AntiGravity</div>
             <div class="slash-item" data-cmd="@debate @claude @agy "><span class="slash-badge">@debate</span> Start multi-agent debate</div>
             <div class="slash-item" data-cmd="@all "><span class="slash-badge">@all</span> Send to all connected harnesses</div>
             <div class="slash-item" data-cmd="/clear"><span class="slash-badge">/clear</span> Clear chat history</div>
           </div>
 
-          <form id="chat-input-form" class="input-form">
-            <textarea
-              id="message-textarea"
-              placeholder="@claude, @agy, or type / for commands... (Shift+Enter for newline)"
-              rows="1"
-            ></textarea>
-            <button type="submit" id="send-btn" class="apple-send-btn" title="Send Message">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <line x1="22" y1="2" x2="11" y2="13"></line>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-              </svg>
-            </button>
+          <!-- Model Selector Dropdown Popover -->
+          <div class="model-picker-menu hidden" id="model-picker-menu">
+            <div class="picker-header">Select Active Model</div>
+            <div class="picker-option active" data-model="Opus 5" data-harness="claude">
+              <div class="picker-opt-title">Opus 5 <span class="opt-badge native">Ultra</span></div>
+              <div class="picker-opt-sub">Deep reasoning &amp; architectural mastery</div>
+            </div>
+            <div class="picker-option" data-model="Claude 3.7 Sonnet" data-harness="claude">
+              <div class="picker-opt-title">Claude 3.7 Sonnet <span class="opt-badge native">Native CLI</span></div>
+              <div class="picker-opt-sub">🛡️ 100% Zero Ban Risk (Official binary)</div>
+            </div>
+            <div class="picker-option" data-model="AntiGravity Pro" data-harness="agy">
+              <div class="picker-opt-title">AntiGravity 2.5 Pro <span class="opt-badge agy">Google</span></div>
+              <div class="picker-opt-sub">Gemini Pro 2M context agentic engine</div>
+            </div>
+            <div class="picker-option" data-model="AntiGravity Flash" data-harness="agy">
+              <div class="picker-opt-title">AntiGravity Flash <span class="opt-badge agy">Fast</span></div>
+              <div class="picker-opt-sub">Ultra-fast sub-second latency</div>
+            </div>
+            <div class="picker-option" data-model="OpenAI Codex" data-harness="codex">
+              <div class="picker-opt-title">OpenAI Codex <span class="opt-badge codex">GPT-4o</span></div>
+              <div class="picker-opt-sub">Advanced code completions</div>
+            </div>
+            <div class="picker-option" data-model="@debate Mode" data-harness="debate">
+              <div class="picker-opt-title">Multi-Agent Debate <span class="opt-badge heat">Dual Agent</span></div>
+              <div class="picker-opt-sub">Claude and AntiGravity critique each other</div>
+            </div>
+          </div>
+
+          <!-- Thinking Mode Selector Popover -->
+          <div class="thinking-picker-menu hidden" id="thinking-picker-menu">
+            <div class="picker-header">Extended Thinking</div>
+            <div class="thinking-option active" data-thinking="auto">
+              <div>Auto <span class="opt-badge">Adaptive</span></div>
+              <div class="picker-opt-sub">Model decides thinking depth dynamically</div>
+            </div>
+            <div class="thinking-option" data-thinking="8k">
+              <div>Extended <span class="opt-badge">8,192 tokens</span></div>
+              <div class="picker-opt-sub">Deep chain-of-thought exploration</div>
+            </div>
+            <div class="thinking-option" data-thinking="16k">
+              <div>Deep <span class="opt-badge">16,384 tokens</span></div>
+              <div class="picker-opt-sub">Exhaustive reasoning for difficult tasks</div>
+            </div>
+            <div class="thinking-option" data-thinking="off">
+              <div>Off</div>
+              <div class="picker-opt-sub">Standard low-latency generation</div>
+            </div>
+          </div>
+
+          <!-- The Input Form & Toolbar Box (Image 1 Layout) -->
+          <form id="chat-input-form" class="studio-input-box">
+            <!-- Textarea Area -->
+            <div class="studio-textarea-row">
+              <textarea
+                id="message-textarea"
+                placeholder="Type / for commands"
+                rows="1"
+              ></textarea>
+              <button type="submit" id="send-btn" class="input-inline-action" title="Send message">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <circle cx="12" cy="12" r="9"></circle>
+                  <circle cx="12" cy="12" r="3" fill="currentColor"></circle>
+                </svg>
+              </button>
+            </div>
+
+            <!-- Toolbar Row Below Input (Image 1) -->
+            <div class="studio-input-toolbar">
+              <!-- Left Action Controls -->
+              <div class="toolbar-left">
+                <!-- Attach (+) -->
+                <button type="button" id="btn-attach" class="tb-btn" title="Add Context or File">
+                  <span>+</span>
+                </button>
+                <!-- Voice / Mic with Caret -->
+                <button type="button" id="btn-mic" class="tb-btn" title="Voice Dictation">
+                  <span>🎙️</span>
+                  <span class="tb-caret">▾</span>
+                </button>
+                <!-- Thinking Mode Toggle -->
+                <button type="button" id="btn-thinking-toggle" class="tb-btn tb-thinking" title="Toggle Extended Thinking">
+                  <span id="thinking-mode-label">Auto</span>
+                  <span class="tb-caret">▾</span>
+                </button>
+              </div>
+
+              <!-- Right Status & Model Controls -->
+              <div class="toolbar-right">
+                <!-- Model Pill Button (Image 1: Opus 5) -->
+                <button type="button" id="btn-model-pill" class="model-pill-btn" title="Click to Switch Model">
+                  <span id="active-model-name">Opus 5</span>
+                  <span class="tb-caret">▾</span>
+                </button>
+
+                <!-- Mode Badge (Image 1: Ultracode) -->
+                <span class="mode-badge" id="mode-badge">Ultracode</span>
+
+                <!-- Status Progress Ring (Image 1: blue glowing circle) -->
+                <div class="status-ring" id="status-ring" title="Engine Ready">
+                  <span class="ring-spinner"></span>
+                </div>
+              </div>
+            </div>
           </form>
         </div>
       </section>
 
       <!-- ══════════════════════════════════════════════════════════════
-           VIEW 2: PROVIDERS & CONNECTIONS
+           VIEW 2: ARTIFACTS STUDIO (Image 3)
+      ══════════════════════════════════════════════════════════════ -->
+      <section id="view-artifacts" class="content-view">
+        <div class="studio-page-container">
+          <!-- Page Header -->
+          <div class="studio-page-header">
+            <h1 class="serif-title">Artifacts</h1>
+            
+            <div class="studio-header-toolbar">
+              <!-- Filter Tabs (Image 3: All, Yours, Shared with you) -->
+              <div class="segmented-pill-group">
+                <button class="pill-btn active" data-artifact-filter="all">All</button>
+                <button class="pill-btn" data-artifact-filter="yours">Yours</button>
+                <button class="pill-btn" data-artifact-filter="shared">Shared with you</button>
+              </div>
+
+              <div class="header-right-tools">
+                <div class="search-wrap">
+                  <span class="search-icon">🔍</span>
+                  <input type="text" id="artifacts-search" placeholder="Search artifacts..." class="studio-search-input" />
+                </div>
+                <button class="icon-tool-btn" id="btn-artifacts-grid-view" title="Grid View">
+                  <span>⊞</span>
+                </button>
+                <div class="dropdown-wrap">
+                  <button class="dropdown-pill-btn" id="btn-artifact-type-filter">
+                    <span id="artifact-filter-label">All types</span>
+                    <span>▾</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- "Make something new" Section (Image 3 Cards) -->
+          <div class="artifacts-section-block">
+            <div class="section-muted-label">Make something new</div>
+
+            <div class="new-creations-grid">
+              <!-- Docs Beta Card -->
+              <div class="creation-card docs-card" data-action="new-doc">
+                <div class="card-visual doc-visual">
+                  <div class="mock-doc">
+                    <div class="doc-letter">A</div>
+                    <div class="doc-line short"></div>
+                    <div class="doc-line long"></div>
+                    <div class="doc-line mid"></div>
+                  </div>
+                </div>
+                <div class="card-meta">
+                  <span class="card-name">Docs</span>
+                  <span class="card-badge">Beta</span>
+                </div>
+              </div>
+
+              <!-- Slides Beta Card -->
+              <div class="creation-card slides-card" data-action="new-slide">
+                <div class="card-visual slide-visual">
+                  <div class="mock-slide">
+                    <div class="slide-header-bar"></div>
+                    <div class="slide-content-split">
+                      <div class="slide-box"></div>
+                      <div class="slide-box-accent"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="card-meta">
+                  <span class="card-name">Slides</span>
+                  <span class="card-badge">Beta</span>
+                </div>
+              </div>
+
+              <!-- Design Beta Card -->
+              <div class="creation-card design-card" data-action="new-design">
+                <div class="card-visual design-visual">
+                  <div class="mock-phone">
+                    <div class="phone-screen">
+                      <div class="phone-dot"></div>
+                      <div class="phone-bar"></div>
+                      <div class="phone-bar-small"></div>
+                    </div>
+                    <div class="phone-home"></div>
+                  </div>
+                </div>
+                <div class="card-meta">
+                  <span class="card-name">Design</span>
+                  <span class="card-badge">Beta</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Existing Artifacts List -->
+          <div class="artifacts-section-block">
+            <div class="section-muted-label">Recent Artifacts</div>
+            <div class="artifacts-grid" id="artifacts-grid">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════════════════
+           VIEW 3: CUSTOMIZE (Image 2: Skills, Connectors/MCP, Plugins)
+      ══════════════════════════════════════════════════════════════ -->
+      <section id="view-customize" class="content-view">
+        <div class="studio-page-container">
+          <!-- Page Header -->
+          <div class="studio-page-header">
+            <h1 class="serif-title">Customize</h1>
+
+            <div class="studio-header-toolbar">
+              <!-- Left Category Tabs (Skills, Connectors, Plugins) -->
+              <div class="segmented-pill-group">
+                <button class="pill-btn active" data-cust-category="skills">Skills</button>
+                <button class="pill-btn" data-cust-category="connectors">Connectors (MCP)</button>
+                <button class="pill-btn" data-cust-category="plugins">Plugins</button>
+              </div>
+
+              <div class="toolbar-divider"></div>
+
+              <!-- Right Scope Tabs (Yours, Discover) -->
+              <div class="segmented-pill-group">
+                <button class="pill-btn" data-cust-scope="yours">Yours</button>
+                <button class="pill-btn active" data-cust-scope="discover">Discover</button>
+              </div>
+
+              <!-- Far Right Action Tools -->
+              <div class="header-right-tools">
+                <div class="search-wrap">
+                  <span class="search-icon">🔍</span>
+                  <input type="text" id="customize-search" placeholder="Search..." class="studio-search-input" />
+                </div>
+                <button class="icon-tool-btn" id="btn-cust-sort" title="Sort items">
+                  <span>⇅</span>
+                </button>
+                <button class="studio-add-btn" id="btn-cust-add">
+                  <span>Add</span>
+                  <span>▾</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- MCP Banner (Shown when Connectors selected) -->
+          <div id="mcp-banner" class="mcp-marketplace-banner hidden">
+            <div class="banner-content">
+              <h3>🔌 Model Context Protocol (MCP) Marketplace</h3>
+              <p>Connect official &amp; community MCP servers directly into your harness to empower models with live tools and data.</p>
+            </div>
+            <button class="mcp-custom-connect-btn" id="btn-add-custom-mcp">+ Connect Custom MCP</button>
+          </div>
+
+          <!-- Items List (Image 2 item rows) -->
+          <div class="customize-list" id="customize-list">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════════════════
+           VIEW 4: HARNESS PROVIDERS & CONNECTIONS
       ══════════════════════════════════════════════════════════════ -->
       <section id="view-providers" class="content-view">
         <header class="glass-topbar">
@@ -184,8 +453,69 @@
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════════════════
-       APPLE LIQUID GLASS: CONTEXT & QUOTA INSPECTOR POPOVER
-       (Inspired by Claude Studio, redesigned in pure Apple aesthetic)
+       ARTIFACT LIVE INSPECTOR MODAL
+  ══════════════════════════════════════════════════════════════════════════ -->
+  <div class="studio-modal hidden" id="artifact-modal">
+    <div class="modal-backdrop" id="modal-backdrop"></div>
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-meta">
+          <span class="modal-badge" id="modal-art-badge">Docs Beta</span>
+          <h2 class="modal-title" id="modal-art-title">Artifact Title</h2>
+        </div>
+        <div class="modal-actions">
+          <button class="modal-btn-action" id="btn-copy-art-code">Copy Code</button>
+          <button class="modal-close-btn" id="btn-close-modal">✕</button>
+        </div>
+      </div>
+      <div class="modal-tabs">
+        <button class="m-tab active" data-tab="preview">Live Preview</button>
+        <button class="m-tab" data-tab="code">Source Code</button>
+      </div>
+      <div class="modal-body">
+        <div id="modal-preview-pane" class="tab-pane active">
+          <!-- Live Preview Content -->
+        </div>
+        <div id="modal-code-pane" class="tab-pane">
+          <pre><code id="modal-code-content"></code></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════
+       CONNECT CUSTOM MCP MODAL
+  ══════════════════════════════════════════════════════════════════════════ -->
+  <div class="studio-modal hidden" id="mcp-connect-modal">
+    <div class="modal-backdrop" id="mcp-modal-backdrop"></div>
+    <div class="modal-card modal-small">
+      <div class="modal-header">
+        <h2 class="modal-title">Connect MCP Server</h2>
+        <button class="modal-close-btn" id="btn-close-mcp-modal">✕</button>
+      </div>
+      <div class="modal-body form-body">
+        <div class="form-group">
+          <label>Server Name</label>
+          <input type="text" id="mcp-input-name" placeholder="e.g. My PostgreSQL DB" class="studio-input" />
+        </div>
+        <div class="form-group">
+          <label>Command / NPX Package</label>
+          <input type="text" id="mcp-input-command" placeholder="npx -y @modelcontextprotocol/server-postgres postgresql://..." class="studio-input" />
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <input type="text" id="mcp-input-desc" placeholder="Database inspection and analytics" class="studio-input" />
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-cancel" id="btn-cancel-mcp">Cancel</button>
+          <button type="button" class="btn-primary" id="btn-save-mcp">Connect Server</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════
+       CONTEXT & QUOTA INSPECTOR POPOVER
   ══════════════════════════════════════════════════════════════════════════ -->
   <div class="apple-popover hidden" id="context-popover">
     <div class="popover-card">
@@ -194,7 +524,7 @@
         <span class="popover-metric" id="popover-total-metric">319.6k / 1M (32%)</span>
       </div>
 
-      <!-- Segmented Multi-Color Progress Bar (Apple refined) -->
+      <!-- Segmented Multi-Color Progress Bar -->
       <div class="apple-seg-bar">
         <div class="seg-item seg-msg" style="width: 27%" title="Messages 27%"></div>
         <div class="seg-item seg-skills" style="width: 1%" title="Skills 1%"></div>

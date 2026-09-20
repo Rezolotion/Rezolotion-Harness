@@ -17,6 +17,7 @@ from core.debate import DebateManager
 from core.router import HarnessRouter
 from core.config import settings
 from core.oauth_bridge import router_bridge
+from core.studio_store import studio_store
 from adapters.native_claude import NativeClaudeCodeAdapter
 
 app = FastAPI(title="Rezolotion Harness", version="0.3.0")
@@ -217,9 +218,92 @@ async def clear_chat_history():
     return {"status": "cleared"}
 
 
+# ── Studio: Skills, MCP Connectors & Artifacts Endpoints ─────────────────────
+
+class ToggleMCPRequest(BaseModel):
+    config: Optional[Dict[str, Any]] = None
+
+
+class CustomMCPRequest(BaseModel):
+    id: Optional[str] = None
+    name: str
+    author: Optional[str] = "Custom"
+    description: Optional[str] = "User-defined MCP Server"
+    icon: Optional[str] = "🔌"
+    category: Optional[str] = "custom"
+    command: str
+    envKeys: Optional[List[str]] = []
+    config: Optional[Dict[str, Any]] = {}
+
+
+class CreateArtifactRequest(BaseModel):
+    title: str
+    type: str = "docs"
+    badge: Optional[str] = None
+    summary: Optional[str] = ""
+    content: str
+    author: Optional[str] = "User"
+
+
+@app.get("/api/skills")
+async def get_skills():
+    skills = await studio_store.get_skills()
+    return {"skills": skills}
+
+
+@app.post("/api/skills/{skill_id}/toggle")
+async def toggle_skill(skill_id: str):
+    new_state = await studio_store.toggle_skill(skill_id)
+    return {"id": skill_id, "isInstalled": new_state}
+
+
+@app.get("/api/mcp")
+async def get_mcp_connectors():
+    connectors = await studio_store.get_mcp_servers()
+    return {"connectors": connectors}
+
+
+@app.post("/api/mcp/{mcp_id}/toggle")
+async def toggle_mcp(mcp_id: str, req: Optional[ToggleMCPRequest] = None):
+    cfg = req.config if req else None
+    new_state = await studio_store.toggle_mcp(mcp_id, cfg)
+    return {"id": mcp_id, "isConnected": new_state}
+
+
+@app.post("/api/mcp/custom")
+async def add_custom_mcp(req: CustomMCPRequest):
+    data = await studio_store.add_custom_mcp(req.model_dump())
+    return {"success": True, "connector": data}
+
+
+@app.get("/api/artifacts")
+async def get_artifacts():
+    arts = await studio_store.get_artifacts()
+    return {"artifacts": arts}
+
+
+@app.get("/api/artifacts/{artifact_id}")
+async def get_artifact_detail(artifact_id: str):
+    art = await studio_store.get_artifact(artifact_id)
+    if not art:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+    return {"artifact": art}
+
+
+@app.post("/api/artifacts")
+async def create_artifact(req: CreateArtifactRequest):
+    art = await studio_store.create_artifact(req.model_dump())
+    return {"success": True, "artifact": art}
+
+
 # ── Execution Engine Dispatcher ──────────────────────────────────────────────
 
-async def execute_harness(harness_id: str, prompt: str, history: list[dict]) -> tuple[str, str, int, int]:
+async def execute_harness(
+    harness_id: str,
+    prompt: str,
+    history: list[dict],
+    requested_model: str = "",
+) -> tuple[str, str, int, int]:
     """
     Executes the harness safely.
     - For Claude: Runs the official native CLI binary directly (Zero Ban Risk).
@@ -228,12 +312,26 @@ async def execute_harness(harness_id: str, prompt: str, history: list[dict]) -> 
     if harness_id == "claude" and native_claude.is_configured():
         resp = await native_claude.send(prompt, history)
         if resp.ok:
-            return "Official Claude CLI", resp.content, resp.input_tokens, resp.output_tokens
+            model_label = requested_model or "Claude 3.7 Sonnet (Native)"
+            return model_label, resp.content, resp.input_tokens, resp.output_tokens
         # Fallback to router if native failed
         print("Native claude error:", resp.error)
 
-    # Dispatch to AntiGravity / 9Router
-    model_name = "ag/gemini-3.8-flash-high" if harness_id == "agy" else "cc/claude-sonnet-5"
+    # Determine model
+    if requested_model:
+        if "opus" in requested_model.lower():
+            model_name = "cc/claude-opus-4-1"
+        elif "sonnet" in requested_model.lower():
+            model_name = "cc/claude-sonnet-5"
+        elif "gemini" in requested_model.lower() or "agy" in requested_model.lower():
+            model_name = "ag/gemini-3.8-flash-high"
+        elif "codex" in requested_model.lower() or "gpt" in requested_model.lower():
+            model_name = "codex/gpt-4o"
+        else:
+            model_name = requested_model
+    else:
+        model_name = "ag/gemini-3.8-flash-high" if harness_id == "agy" else "cc/claude-sonnet-5"
+
     messages = [
         {"role": "system", "content": f"You are {harness_id.upper()} in Rezolotion Harness. Answer concisely."},
         *history,
@@ -261,6 +359,8 @@ async def chat_websocket(websocket: WebSocket):
             if not user_message:
                 continue
 
+            selected_model = payload.get("model", "")
+
             await context.add(role="user", content=user_message)
             routed = router.route(user_message)
 
@@ -285,7 +385,7 @@ async def chat_websocket(websocket: WebSocket):
                     })
 
                     tasks = [
-                        execute_harness(t.value, routed.content, history_msgs)
+                        execute_harness(t.value, routed.content, history_msgs, selected_model)
                         for t in routed.targets
                     ]
                     responses = await asyncio.gather(*tasks, return_exceptions=True)
@@ -317,7 +417,7 @@ async def chat_websocket(websocket: WebSocket):
             else:
                 # ── Standard Single / Broadcast Execution ─────────────────────
                 tasks = [
-                    execute_harness(t.value, routed.content, history_msgs)
+                    execute_harness(t.value, routed.content, history_msgs, selected_model)
                     for t in routed.targets
                 ]
                 responses = await asyncio.gather(*tasks, return_exceptions=True)
