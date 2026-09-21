@@ -1,6 +1,27 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { api } from '@/lib/api'
 import type { Provider, Project, TelemetryStats, ChatMessage } from '@/types'
+import type { ExecutionStep } from '@/components/chat/TaskStepTracker'
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Project & Thread CRUD API Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function deleteProject(id: string): Promise<void> {
+  await api.del(`/api/projects/${id}`)
+}
+
+export async function renameProject(id: string, name: string): Promise<Project> {
+  return await api.put<Project>(`/api/projects/${id}`, { name })
+}
+
+export async function deleteThread(id: string): Promise<void> {
+  await api.del(`/api/threads/${id}`)
+}
+
+export async function renameThread(id: string, title: string): Promise<void> {
+  await api.put<void>(`/api/threads/${id}`, { title })
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Raw API response types (match actual backend shape)
@@ -132,6 +153,8 @@ export function useChat(sessionId: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [streaming, setStreaming] = useState(false)
   const [streamText, setStreamText] = useState('')
+  const [streamThinking, setStreamThinking] = useState('')
+  const [activeSteps, setActiveSteps] = useState<ExecutionStep[]>([])
   const [tokenCount, setTokenCount] = useState(0)
   const wsRef = useRef<WebSocket | null>(null)
   const msgIdRef = useRef(0)
@@ -140,11 +163,13 @@ export function useChat(sessionId: string) {
     return () => { wsRef.current?.close() }
   }, [sessionId])
 
-  const sendMessage = useCallback((content: string, provider: string, model: string) => {
+  const sendMessage = useCallback((content: string, provider: string, model: string, mode: string = 'build') => {
     const ws = api.ws(sessionId)
     wsRef.current = ws
     setStreaming(true)
     setStreamText('')
+    setStreamThinking('')
+    setActiveSteps([])
 
     const userMsg: ChatMessage = {
       id: String(++msgIdRef.current),
@@ -155,18 +180,60 @@ export function useChat(sessionId: string) {
     setMessages(prev => [...prev, userMsg])
 
     ws.onopen = () => {
-      ws.send(JSON.stringify({ content, provider, model }))
+      ws.send(JSON.stringify({ content, provider, model, mode }))
     }
 
     let buffer = ''
+    let thinkingBuffer = ''
+
     ws.onmessage = (ev: MessageEvent) => {
       try {
         const evt = JSON.parse(ev.data as string) as {
           type: string
+          step_id?: string
+          title?: string
+          tool?: string
+          input?: string
+          output?: string
+          status?: 'running' | 'completed' | 'failed' | 'pending'
+          duration_ms?: number
           text?: string
+          harness?: string
+          model?: string
+          content?: string
           tokens_used?: number
         }
-        if (evt.type === 'text_delta' && evt.text) {
+
+        if (evt.type === 'step_start') {
+          const step: ExecutionStep = {
+            id: evt.step_id || String(Date.now()),
+            title: evt.title || `Executing with ${provider}`,
+            toolName: evt.tool || 'run_command',
+            input: evt.input,
+            status: 'running',
+          }
+          setActiveSteps(prev => [...prev.filter(s => s.id !== step.id), step])
+        } else if (evt.type === 'step_output') {
+          setActiveSteps(prev =>
+            prev.map(s => (s.id === evt.step_id ? { ...s, output: evt.output } : s))
+          )
+        } else if (evt.type === 'step_finish') {
+          setActiveSteps(prev =>
+            prev.map(s =>
+              s.id === evt.step_id
+                ? {
+                    ...s,
+                    status: (evt.status as 'completed' | 'failed') || 'completed',
+                    durationMs: evt.duration_ms || s.durationMs,
+                    output: evt.output ?? s.output,
+                  }
+                : s
+            )
+          )
+        } else if (evt.type === 'thinking_delta' && evt.text) {
+          thinkingBuffer += evt.text
+          setStreamThinking(thinkingBuffer)
+        } else if (evt.type === 'text_delta' && evt.text) {
           buffer += evt.text
           setStreamText(buffer)
           setTokenCount(t => t + Math.ceil(evt.text!.length / 4))
@@ -174,14 +241,16 @@ export function useChat(sessionId: string) {
           const assistantMsg: ChatMessage = {
             id: String(++msgIdRef.current),
             role: 'assistant',
-            content: buffer,
-            provider,
-            model,
+            content: buffer || evt.content || '',
+            provider: evt.harness || provider,
+            model: evt.model || model,
+            thinking: thinkingBuffer || undefined,
             tokens_used: evt.tokens_used,
             timestamp: Date.now(),
           }
           setMessages(prev => [...prev, assistantMsg])
           setStreamText('')
+          setStreamThinking('')
           setStreaming(false)
           ws.close()
         }
@@ -192,5 +261,15 @@ export function useChat(sessionId: string) {
     ws.onerror = () => setStreaming(false)
   }, [sessionId])
 
-  return { messages, streaming, streamText, tokenCount, sendMessage }
+  return {
+    messages,
+    streaming,
+    streamText,
+    streamThinking,
+    activeSteps,
+    tokenCount,
+    sendMessage,
+    setMessages,
+    setActiveSteps,
+  }
 }

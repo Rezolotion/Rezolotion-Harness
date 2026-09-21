@@ -1,15 +1,24 @@
 import { useState, useCallback, useEffect } from 'react'
-import { useProviders, useProjects, useChat } from '@/hooks'
+import {
+  useProviders,
+  useProjects,
+  useChat,
+  deleteProject,
+  renameProject,
+  deleteThread,
+  renameThread,
+} from '@/hooks'
 import type { Project, Thread } from '@/types'
 import { ProjectsSidebar } from '@/components/sidebar/ProjectsSidebar'
 import { ProvidersModal } from '@/components/providers/ProvidersModal'
+import { ProjectCreationWizard } from '@/components/projects/ProjectCreationWizard'
+import { AuthGate } from '@/components/auth/AuthGate'
 import { MessageList } from '@/components/chat/MessageList'
 import { Composer, AgentMode } from '@/components/chat/Composer'
 import { FileExplorer } from '@/components/explorer/FileExplorer'
 import { DiffViewer } from '@/components/explorer/DiffViewer'
 import { ObservabilityDashboard } from '@/components/observability/ObservabilityDashboard'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
-import { ExecutionStep } from '@/components/chat/TaskStepTracker'
 import { api } from '@/lib/api'
 import {
   FolderTree,
@@ -35,10 +44,10 @@ export function StudioPage() {
   const [activeThread, setActiveThread] = useState<Thread | null>(null)
   const [sessionId, setSessionId] = useState<string>(genId())
   const [showProviders, setShowProviders] = useState(false)
+  const [showProjectWizard, setShowProjectWizard] = useState(false)
   const [rightPanel, setRightPanel] = useState<RightPanelTab>('explorer')
   const [activeArtifact, setActiveArtifact] = useState<{ title: string; content: string } | null>(null)
   const [theme, setTheme] = useState<'dark' | 'light'>('dark')
-  const [activeSteps, setActiveSteps] = useState<ExecutionStep[]>([])
 
   // Auto-select initial project and thread
   useEffect(() => {
@@ -52,7 +61,15 @@ export function StudioPage() {
     }
   }, [projects, activeProject])
 
-  const { messages, streaming, streamText, tokenCount, sendMessage } = useChat(sessionId)
+  const {
+    messages,
+    streaming,
+    streamText,
+    activeSteps,
+    tokenCount,
+    sendMessage,
+    setActiveSteps,
+  } = useChat(sessionId)
 
   const handleSelectThread = (proj: Project, thread: Thread) => {
     setActiveProject(proj)
@@ -75,46 +92,91 @@ export function StudioPage() {
     } catch (e) {
       console.error('Failed to create thread', e)
     }
-  }, [providers, refreshProjects])
+  }, [providers, refreshProjects, setActiveSteps])
 
-  const handleNewProject = useCallback(async () => {
-    const name = prompt('Enter project name:')
-    if (!name?.trim()) return
-    try {
-      const proj = await api.post<Project>('/api/projects', {
-        name,
-        root_path: '.',
-        description: 'Workspace Project',
-      })
+  const handleProjectCreated = useCallback(
+    async (newProj: Project) => {
       await refreshProjects()
-      setActiveProject(proj)
-      setActiveThread(null)
-      setSessionId(genId())
-    } catch (e) {
-      console.error('Failed to create project', e)
-    }
-  }, [refreshProjects])
+      setActiveProject(newProj)
+      setShowProjectWizard(false)
+      if (newProj.threads && newProj.threads.length > 0) {
+        setActiveThread(newProj.threads[0])
+        setSessionId(newProj.threads[0].id)
+      } else {
+        setActiveThread(null)
+        setSessionId(genId())
+      }
+      setActiveSteps([])
+    },
+    [refreshProjects, setActiveSteps]
+  )
+
+  const handleDeleteProject = useCallback(
+    async (projectId: string) => {
+      try {
+        await deleteProject(projectId)
+        await refreshProjects()
+        if (activeProject?.id === projectId) {
+          setActiveProject(null)
+          setActiveThread(null)
+          setSessionId(genId())
+        }
+      } catch (e) {
+        console.error('Failed to delete project', e)
+      }
+    },
+    [activeProject, refreshProjects]
+  )
+
+  const handleRenameProject = useCallback(
+    async (projectId: string, newName: string) => {
+      try {
+        await renameProject(projectId, newName)
+        await refreshProjects()
+      } catch (e) {
+        console.error('Failed to rename project', e)
+      }
+    },
+    [refreshProjects]
+  )
+
+  const handleDeleteThread = useCallback(
+    async (threadId: string) => {
+      try {
+        await deleteThread(threadId)
+        await refreshProjects()
+        if (activeThread?.id === threadId) {
+          setActiveThread(null)
+          setSessionId(genId())
+        }
+      } catch (e) {
+        console.error('Failed to delete thread', e)
+      }
+    },
+    [activeThread, refreshProjects]
+  )
+
+  const handleRenameThread = useCallback(
+    async (threadId: string, newTitle: string) => {
+      try {
+        await renameThread(threadId, newTitle)
+        await refreshProjects()
+      } catch (e) {
+        console.error('Failed to rename thread', e)
+      }
+    },
+    [refreshProjects]
+  )
+
+  const handleLogout = () => {
+    localStorage.removeItem('rezolotion_session_token')
+    localStorage.removeItem('rezolotion_user')
+    window.location.reload()
+  }
 
   const handleSend = useCallback(
     (content: string, provider: string, model: string, mode: AgentMode) => {
-      // Simulate real-time execution steps for AntiGravity feel
-      const mockStep: ExecutionStep = {
-        id: genId(),
-        title: mode === 'plan' ? 'Synthesizing Architecture Plan' : `Executing with ${provider}`,
-        toolName: mode === 'plan' ? 'view_file' : 'run_command',
-        status: 'running',
-        input: content.length > 60 ? `${content.slice(0, 60)}...` : content,
-      }
-      setActiveSteps([mockStep])
-
-      sendMessage(content, provider, model)
-
-      // Mark step completed after turn
-      setTimeout(() => {
-        setActiveSteps(prev =>
-          prev.map(s => (s.id === mockStep.id ? { ...s, status: 'completed', durationMs: 420 } : s))
-        )
-      }, 1800)
+      sendMessage(content, provider, model, mode)
     },
     [sendMessage]
   )
@@ -140,7 +202,8 @@ export function StudioPage() {
     lastMsg?.content?.toLowerCase().includes('overloaded')
 
   return (
-    <ErrorBoundary>
+    <AuthGate>
+      <ErrorBoundary>
       <div
         className="flex h-screen overflow-hidden font-sans"
         style={{
@@ -156,9 +219,14 @@ export function StudioPage() {
           activeThread={activeThread}
           onSelectThread={handleSelectThread}
           onNewThread={proj => void handleNewThread(proj)}
-          onNewProject={() => void handleNewProject()}
+          onNewProject={() => setShowProjectWizard(true)}
+          onDeleteProject={id => void handleDeleteProject(id)}
+          onRenameProject={(id, name) => void handleRenameProject(id, name)}
+          onDeleteThread={id => void handleDeleteThread(id)}
+          onRenameThread={(id, title) => void handleRenameThread(id, title)}
           onOpenProviders={() => setShowProviders(true)}
           onOpenObserve={() => setRightPanel('observe')}
+          onLogout={handleLogout}
         />
 
         {/* Center Column: Agent Execution Canvas */}
@@ -306,6 +374,15 @@ export function StudioPage() {
           </aside>
         )}
 
+        {/* Project Creation Wizard Modal */}
+        {showProjectWizard && (
+          <ProjectCreationWizard
+            open={showProjectWizard}
+            onClose={() => setShowProjectWizard(false)}
+            onCreated={proj => void handleProjectCreated(proj)}
+          />
+        )}
+
         {/* Providers Authentication Hub Modal */}
         {showProviders && (
           <ProvidersModal
@@ -316,5 +393,6 @@ export function StudioPage() {
         )}
       </div>
     </ErrorBoundary>
+  </AuthGate>
   )
 }

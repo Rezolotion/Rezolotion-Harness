@@ -1,4 +1,5 @@
 import { Component, ErrorInfo, ReactNode } from 'react'
+import { AlertTriangle } from 'lucide-react'
 
 interface Props {
   children: ReactNode
@@ -38,7 +39,7 @@ export class ErrorBoundary extends Component<Props, State> {
             }}
           >
             <div className="flex items-center gap-2">
-              <span className="text-xl">⚠</span>
+              <AlertTriangle className="w-5 h-5 text-amber-400" />
               <h2 className="text-base font-semibold">Render Error Encountered</h2>
             </div>
             <p className="text-xs" style={{ color: 'var(--color-text-secondary, #aaa)' }}>
