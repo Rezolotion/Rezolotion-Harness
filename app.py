@@ -18,6 +18,10 @@ from core.router import HarnessRouter
 from core.config import settings
 from core.oauth_bridge import router_bridge
 from core.studio_store import studio_store
+from core.providers_manager import providers_manager
+from core.projects_manager import projects_manager
+from core.fs_manager import fs_manager
+from core.telemetry_manager import telemetry_manager
 from adapters.native_claude import NativeClaudeCodeAdapter
 
 app = FastAPI(title="Rezolotion Harness", version="0.3.0")
@@ -47,8 +51,22 @@ async def kitchen_sink():
     return HTMLResponse("<h1>Frontend not built. Run npm run build in frontend/</h1>", status_code=404)
 
 
+@app.get("/studio", response_class=HTMLResponse)
+async def studio():
+    dist_html = os.path.join(frontend_dist, "index.html")
+    if os.path.exists(dist_html):
+        with open(dist_html, "r", encoding="utf-8") as f:
+            return f.read()
+    return HTMLResponse("<h1>Frontend not built. Run npm run build in frontend/</h1>", status_code=404)
+
+
 @app.get("/", response_class=HTMLResponse)
 async def root():
+    # Prefer the React studio if built, else fall back to legacy UI
+    dist_html = os.path.join(frontend_dist, "index.html")
+    if os.path.exists(dist_html):
+        with open(dist_html, "r", encoding="utf-8") as f:
+            return f.read()
     html_path = os.path.join(ui_dir, "index.html")
     with open(html_path, "r", encoding="utf-8") as f:
         return f.read()
@@ -492,3 +510,104 @@ async def chat_websocket(websocket: WebSocket):
 
     except WebSocketDisconnect:
         pass
+
+
+# ── Multi-Provider Authentication Endpoints ─────────────────────────────────
+
+@app.get("/api/auth/providers")
+@app.get("/api/auth/status")
+async def get_providers_status():
+    """Returns real connection & auth status for all 7 providers."""
+    return await providers_manager.get_all_status()
+
+
+class ConfigureProviderRequest(BaseModel):
+    provider_id: str
+    key: str
+    value: str
+
+@app.post("/api/auth/configure")
+async def configure_provider(req: ConfigureProviderRequest):
+    """Saves API key or connection parameter for a provider."""
+    providers_manager.save_env_var(req.key, req.value)
+    return {"success": True, "message": f"Updated {req.key}"}
+
+
+class TestProviderRequest(BaseModel):
+    provider_id: str
+    key: Optional[str] = None
+
+@app.post("/api/auth/test")
+async def test_provider(req: TestProviderRequest):
+    """Performs live connectivity verification for a provider."""
+    return await providers_manager.test_provider(req.provider_id, req.key)
+
+
+# ── Projects & Workspace Endpoints ──────────────────────────────────────────
+
+@app.get("/api/projects")
+async def list_projects():
+    """Lists all workspace projects with their threads."""
+    return projects_manager.list_projects()
+
+
+class CreateProjectRequest(BaseModel):
+    name: str
+    root_path: str
+    description: Optional[str] = ""
+
+@app.post("/api/projects")
+async def create_project(req: CreateProjectRequest):
+    """Creates a new workspace project bound to a local path."""
+    proj = projects_manager.create_project(req.name, req.root_path, req.description or "")
+    return proj
+
+
+@app.delete("/api/projects/{project_id}")
+async def delete_project(project_id: str):
+    projects_manager.delete_project(project_id)
+    return {"success": True}
+
+
+class CreateThreadRequest(BaseModel):
+    title: str
+    harness: Optional[str] = "claude"
+    model: Optional[str] = "claude-3-7-sonnet"
+
+@app.post("/api/projects/{project_id}/threads")
+async def create_thread(project_id: str, req: CreateThreadRequest):
+    thread = projects_manager.create_thread(
+        project_id, req.title, req.harness or "claude", req.model or "claude-3-7-sonnet"
+    )
+    return thread
+
+
+@app.delete("/api/threads/{thread_id}")
+async def delete_thread(thread_id: str):
+    projects_manager.delete_thread(thread_id)
+    return {"success": True}
+
+
+# ── Project File System Endpoints ───────────────────────────────────────────
+
+@app.get("/api/fs/tree")
+async def get_fs_tree(path: str = "."):
+    """Returns recursive file tree for the project explorer."""
+    abs_path = os.path.abspath(path)
+    return fs_manager.get_tree(abs_path)
+
+
+@app.get("/api/fs/file")
+async def get_fs_file(path: str):
+    """Reads file content for preview in the project explorer tab."""
+    abs_path = os.path.abspath(path)
+    return fs_manager.read_file(abs_path)
+
+
+# ── LLM Observability & Telemetry Endpoints ─────────────────────────────────
+
+@app.get("/api/telemetry/stats")
+async def get_telemetry_stats():
+    """Returns analytics matching Grok Build Telemetry Dashboard (Screenshot 2)."""
+    return telemetry_manager.get_dashboard_stats()
+

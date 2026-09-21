@@ -92,27 +92,27 @@ export function KitchenSinkPage() {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="flex items-center gap-2 p-3 rounded-sm border border-border-subtle bg-surface">
-            <StatusDot agent="claude" pulse />
+            <StatusDot connected={true} size="md" />
             <span className="text-xs font-medium text-fg">Claude Code</span>
-            <span className="text-xs font-mono text-fg-subtle ms-auto">Terracotta</span>
+            <span className="text-xs font-mono text-fg-subtle ms-auto">Connected</span>
           </div>
 
           <div className="flex items-center gap-2 p-3 rounded-sm border border-border-subtle bg-surface">
-            <StatusDot agent="gemini" pulse />
+            <StatusDot connected={true} size="md" />
             <span className="text-xs font-medium text-fg">AntiGravity</span>
-            <span className="text-xs font-mono text-fg-subtle ms-auto">Teal</span>
+            <span className="text-xs font-mono text-fg-subtle ms-auto">Connected</span>
           </div>
 
           <div className="flex items-center gap-2 p-3 rounded-sm border border-border-subtle bg-surface">
-            <StatusDot agent="deepseek" />
+            <StatusDot connected={false} size="md" />
             <span className="text-xs font-medium text-fg">DeepSeek R1</span>
-            <span className="text-xs font-mono text-fg-subtle ms-auto">Royal Blue</span>
+            <span className="text-xs font-mono text-fg-subtle ms-auto">Offline</span>
           </div>
 
           <div className="flex items-center gap-2 p-3 rounded-sm border border-border-subtle bg-surface">
-            <StatusDot agent="codex" />
+            <StatusDot connected={false} size="md" />
             <span className="text-xs font-medium text-fg">Codex / GPT-4o</span>
-            <span className="text-xs font-mono text-fg-subtle ms-auto">Mint</span>
+            <span className="text-xs font-mono text-fg-subtle ms-auto">Offline</span>
           </div>
         </div>
       </section>
