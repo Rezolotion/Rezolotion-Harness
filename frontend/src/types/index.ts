@@ -1,18 +1,36 @@
-// ─── Provider ──────────────────────────────────────────────────────────────
+// ─── Provider & Models ────────────────────────────────────────────────────────
 
 export interface Provider {
   id: string
   name: string
   icon: string
   connected: boolean
-  mode: 'cli' | 'api_key' | 'oauth'
+  mode: 'cli' | 'api_key' | 'oauth' | string
   env_var: string | null
   note: string
+  models?: string[]
+  email?: string | null
+  auth_method?: string
+  connection_id?: string | null
+}
+
+export interface ModelOption {
+  id: string
+  name: string
+  provider: string
+  tier: 'Fast' | 'Reasoning' | 'Heavy'
+  desc: string
+  connected?: boolean
 }
 
 export interface ProvidersResponse {
   providers: Provider[]
 }
+
+export interface ModelsResponse {
+  models: ModelOption[]
+}
+
 
 // ─── Projects ──────────────────────────────────────────────────────────────
 
@@ -59,6 +77,24 @@ export interface ToolCall {
   output?: unknown
 }
 
+export type ExecutionType = 'single' | 'multi_model' | 'multi_agent'
+
+export interface MultiModelResponseItem {
+  provider: string
+  model: string
+  content: string
+  tokens_used?: number
+  thinking?: string
+}
+
+export interface AgentTeamRoleOutput {
+  role: 'architect' | 'coder' | 'reviewer'
+  model: string
+  provider: string
+  content: string
+  status: 'completed' | 'running' | 'failed'
+}
+
 export interface ChatMessage {
   id: string
   role: MessageRole
@@ -69,6 +105,9 @@ export interface ChatMessage {
   thinking?: string
   tokens_used?: number
   timestamp: number
+  execution_type?: ExecutionType
+  multi_model_responses?: MultiModelResponseItem[]
+  agent_team_report?: AgentTeamRoleOutput[]
 }
 
 // ─── Telemetry ──────────────────────────────────────────────────────────────

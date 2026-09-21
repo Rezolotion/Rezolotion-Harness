@@ -90,6 +90,46 @@ async def capture():
                 f.write(base64.b64decode(shot3["data"]))
             print("Saved studio_wizard_modal.png")
 
+            # Close wizard if open
+            await cdp_call(ws, "Runtime.evaluate", {
+                "expression": """
+                const closeBtn = document.querySelector('button svg.lucide-x')?.parentElement;
+                if (closeBtn) closeBtn.click();
+                """
+            }, 16)
+            await asyncio.sleep(0.5)
+
+            # 4. Open Providers Hub Modal
+            await cdp_call(ws, "Runtime.evaluate", {
+                "expression": """
+                // Close any open modals
+                const closeBtns = document.querySelectorAll('button');
+                closeBtns.forEach(b => {
+                    if (b.querySelector('svg.lucide-x')) b.click();
+                });
+                """
+            }, 16)
+            await asyncio.sleep(0.8)
+
+            await cdp_call(ws, "Runtime.evaluate", {
+                "expression": """
+                const btns = Array.from(document.querySelectorAll('button'));
+                const provBtn = btns.find(b => b.textContent && b.textContent.includes('Providers Hub'));
+                if (provBtn) {
+                    provBtn.click();
+                }
+                """
+            }, 17)
+            await asyncio.sleep(1.5)
+
+            # Screenshot 4: Providers Hub Modal
+            shot4 = await cdp_call(ws, "Page.captureScreenshot", {"format": "png"}, 18)
+            with open(os.path.join(ARTIFACTS_DIR, "studio_providers_hub.png"), "wb") as f:
+                f.write(base64.b64decode(shot4["data"]))
+            print("Saved studio_providers_hub.png")
+
+
+
     finally:
         chrome_proc.terminate()
         chrome_proc.wait()

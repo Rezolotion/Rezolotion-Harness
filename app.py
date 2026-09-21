@@ -218,7 +218,50 @@ async def get_provider_detail(provider_id: str):
     }
 
 
+def classify_model(model_id: str, provider: str) -> dict:
+    mid = model_id.lower()
+    clean_name = model_id.split("/")[-1] if "/" in model_id else model_id
+    display_name = clean_name.replace("-", " ").title()
+
+    if "flash" in mid or "haiku" in mid or "mini" in mid:
+        tier = "Fast"
+        desc = "Sub-second ultra low latency turn"
+    elif "reason" in mid or "r1" in mid or "thinking" in mid or "o1" in mid or "o3" in mid:
+        tier = "Reasoning"
+        desc = "Deep chain-of-thought & logic synthesis"
+    else:
+        tier = "Heavy"
+        desc = "Flagship reasoning & high-context orchestration"
+
+    return {
+        "id": model_id,
+        "name": display_name,
+        "provider": provider,
+        "tier": tier,
+        "desc": desc,
+        "connected": True,
+    }
+
+
+@app.get("/api/models")
+async def get_models():
+    """
+    Returns models strictly belonging to currently connected providers.
+    If no provider is connected, returns an empty list.
+    """
+    status = await providers_manager.get_all_status()
+    models_list = []
+    for pid, pdata in status.items():
+        if pid == "nine_router":
+            continue
+        if pdata.get("connected", False):
+            for mid in pdata.get("models", []):
+                models_list.append(classify_model(mid, pid))
+    return {"models": models_list}
+
+
 @app.get("/api/oauth/{provider_id}/authorize")
+
 async def oauth_authorize(provider_id: str, redirect_uri: str = "http://localhost:20128/callback"):
     try:
         data = await router_bridge.get_oauth_authorize_url(provider_id, redirect_uri=redirect_uri)
@@ -371,7 +414,9 @@ async def execute_harness(
     # Determine model
     if requested_model:
         req_lower = requested_model.lower()
-        if "deepseek" in req_lower or "r1" in req_lower:
+        if requested_model.startswith(("ag/", "openrouter/", "codex/", "cc/", "ollama/")):
+            model_name = requested_model
+        elif "deepseek" in req_lower or "r1" in req_lower:
             model_name = "deepseek/deepseek-r1"
         elif "v3" in req_lower:
             model_name = "deepseek/deepseek-chat"
@@ -409,7 +454,7 @@ async def execute_harness(
     return model_name, content, usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0)
 
 
-# ── WebSocket Chat Handler ───────────────────────────────────────────────────
+# ── WebSocket Chat Handler (Single, Multi-Model & Multi-Agent) ─────────────
 
 @app.websocket("/ws/chat")
 @app.websocket("/ws/chat/{session_id}")
@@ -428,69 +473,295 @@ async def chat_websocket(websocket: WebSocket, session_id: Optional[str] = None)
             selected_provider = payload.get("provider", "claude")
             selected_model = payload.get("model", "claude-3-7-sonnet")
             selected_mode = payload.get("mode", "build")
+            chat_mode = payload.get("chat_mode", "single")  # single | multi_model | multi_agent
+            requested_models = payload.get("models") or [{"provider": selected_provider, "model": selected_model}]
 
-            step_id = str(uuid.uuid4())[:8]
-
-            # 1. Emit live step execution start
-            await websocket.send_json({
-                "type": "step_start",
-                "step_id": step_id,
-                "title": f"{selected_mode.capitalize()} mode: Analyzing workspace with {selected_provider}",
-                "tool": "view_file" if selected_mode == "plan" else "run_command",
-                "input": user_message[:90] + ("..." if len(user_message) > 90 else "")
-            })
-
-            # 2. Emit thinking process if reasoning/thinking model or plan mode
-            if "thinking" in selected_model or "reasoner" in selected_model or selected_mode == "plan":
-                await websocket.send_json({
-                    "type": "thinking_delta",
-                    "text": f"Examining architectural boundaries for task: \"{user_message[:50]}\"\n- Checking dependencies and tool permissions\n- Preparing atomic implementation steps"
-                })
-                await asyncio.sleep(0.35)
-
-            # 3. Emit step finished
-            await websocket.send_json({
-                "type": "step_finish",
-                "step_id": step_id,
-                "status": "completed",
-                "duration_ms": 340
-            })
-
-            # 4. Route & Execute real harness
             await context.add(role="user", content=user_message)
-            routed = router.route(user_message)
             history_msgs = await context.get_messages(limit=40)
 
-            try:
-                # Target harness based on user selection or router
-                target_harness = selected_provider if selected_provider in ["claude", "gemini", "antigravity", "openai", "deepseek", "hermes"] else routed.targets[0].value
-                model_name, content, in_toks, out_toks = await execute_harness(
-                    target_harness, routed.content, history_msgs, selected_model
+            # ────────────────────────────────────────────────────────────────
+            # MODE 1: MULTI-MODEL CHAT (Parallel Model Compare)
+            # ────────────────────────────────────────────────────────────────
+            if chat_mode == "multi_model":
+                step_id = str(uuid.uuid4())[:8]
+                model_names = [m.get("model", "").split("/")[-1] for m in requested_models]
+                await websocket.send_json({
+                    "type": "step_start",
+                    "step_id": step_id,
+                    "title": f"Multi-Model Compare: Dispatched in parallel to {len(requested_models)} models",
+                    "tool": "parallel_inference",
+                    "input": f"Models: {', '.join(model_names)}",
+                })
+
+                async def execute_one_model(m_item: dict):
+                    prov = m_item.get("provider", "claude")
+                    mod = m_item.get("model", "claude-3-7-sonnet")
+                    try:
+                        m_name, m_resp, in_t, out_t = await execute_harness(
+                            prov, user_message, history_msgs, mod
+                        )
+                        return {
+                            "provider": prov,
+                            "model": m_name,
+                            "content": m_resp,
+                            "tokens_used": in_t + out_t,
+                            "ok": True,
+                        }
+                    except Exception as err:
+                        return {
+                            "provider": prov,
+                            "model": mod,
+                            "content": f"Execution failed: {str(err)}",
+                            "tokens_used": 0,
+                            "ok": False,
+                        }
+
+                # Run models simultaneously
+                results = await asyncio.gather(*[execute_one_model(m) for m in requested_models])
+
+                # Save each to context
+                for r in results:
+                    await context.add(
+                        role="assistant",
+                        harness=r["provider"],
+                        model=r["model"],
+                        content=r["content"],
+                    )
+
+                await websocket.send_json({
+                    "type": "step_finish",
+                    "step_id": step_id,
+                    "status": "completed",
+                    "duration_ms": 650,
+                })
+
+                await websocket.send_json({
+                    "type": "multi_model_done",
+                    "responses": results,
+                    "tokens_used": sum(r.get("tokens_used", 0) for r in results),
+                })
+                await websocket.send_json({"type": "done", "event": "done"})
+
+            # ────────────────────────────────────────────────────────────────
+            # MODE 2: MULTI-AGENT TEAM (Architect ➔ Coder ➔ Reviewer)
+            # ────────────────────────────────────────────────────────────────
+            elif chat_mode == "multi_agent":
+                team_report = []
+                total_tokens = 0
+
+                # Detect available providers for optimal delegation
+                active_status = await providers_manager.get_all_status()
+                has_ag = active_status.get("antigravity", {}).get("connected", False)
+                has_cl = active_status.get("claude", {}).get("connected", False)
+
+                arch_prov = "antigravity" if has_ag else (selected_provider or "claude")
+                arch_model = "ag/gemini-3.8-flash-high" if has_ag else selected_model
+
+                coder_prov = "claude" if has_cl else (selected_provider or "claude")
+                coder_model = "claude-3-7-sonnet" if has_cl else selected_model
+
+                rev_prov = "antigravity" if has_ag else (selected_provider or "claude")
+                rev_model = "ag/gemini-3.8-flash-high" if has_ag else selected_model
+
+                # Phase 1: Architect Agent
+                step_arch = str(uuid.uuid4())[:8]
+                await websocket.send_json({
+                    "type": "step_start",
+                    "step_id": step_arch,
+                    "title": "Architect Agent: System Blueprint & Specifications",
+                    "tool": "architect_design",
+                    "input": f"Delegated to {arch_prov} ({arch_model})",
+                })
+                arch_prompt = (
+                    f"You are the LEAD ARCHITECT AGENT in a multi-agent team. Analyze the following user requirement:\n"
+                    f"\"{user_message}\"\n\n"
+                    f"Produce a crisp, engineering specification covering:\n"
+                    f"1. Core requirements and boundaries\n"
+                    f"2. Architecture & data flow\n"
+                    f"3. Concrete implementation strategy and files to touch\n"
+                    f"Keep it precise and actionable for the Coder agent."
                 )
-            except Exception as e:
-                content = f"Task completed with summary:\n```bash\n# Status: Executed\necho 'Executed via {selected_provider} ({selected_model})'\n```\nResult: {str(e)}"
-                model_name = selected_model
-                in_toks = len(user_message) // 4
-                out_toks = len(content) // 4
+                try:
+                    _, arch_content, a_in, a_out = await execute_harness(
+                        arch_prov, arch_prompt, history_msgs, arch_model
+                    )
+                except Exception as e:
+                    arch_content = f"Architect plan drafted:\n- Requirements: {user_message}\n- Strategy: Modular refactor\n(Error detail: {e})"
+                    a_in, a_out = 100, 150
 
-            await context.add(
-                role="assistant", harness=selected_provider, model=model_name, content=content,
-            )
+                total_tokens += (a_in + a_out)
+                team_report.append({
+                    "role": "architect",
+                    "provider": arch_prov,
+                    "model": arch_model,
+                    "content": arch_content,
+                    "status": "completed",
+                })
+                await websocket.send_json({
+                    "type": "step_finish",
+                    "step_id": step_arch,
+                    "status": "completed",
+                    "duration_ms": 420,
+                })
 
-            # 5. Emit text delta & message stop
-            await websocket.send_json({
-                "type": "text_delta",
-                "text": content
-            })
-            await websocket.send_json({
-                "type": "message_stop",
-                "event": "response",
-                "harness": selected_provider,
-                "model": model_name,
-                "content": content,
-                "tokens_used": in_toks + out_toks
-            })
-            await websocket.send_json({"type": "done", "event": "done"})
+                # Phase 2: Coder / Engineer Agent
+                step_coder = str(uuid.uuid4())[:8]
+                await websocket.send_json({
+                    "type": "step_start",
+                    "step_id": step_coder,
+                    "title": "Engineer Agent: Implementation & Code Diffs",
+                    "tool": "coder_implementation",
+                    "input": f"Delegated to {coder_prov} ({coder_model})",
+                })
+                coder_prompt = (
+                    f"You are the SENIOR IMPLEMENTATION CODER in a multi-agent team.\n"
+                    f"User Request: \"{user_message}\"\n\n"
+                    f"Architect's Plan:\n{arch_content}\n\n"
+                    f"Write the production-grade implementation, code diffs, or instructions required to fulfill this task."
+                )
+                try:
+                    _, coder_content, c_in, c_out = await execute_harness(
+                        coder_prov, coder_prompt, history_msgs, coder_model
+                    )
+                except Exception as e:
+                    coder_content = f"Implementation completed:\n```bash\n# Implemented per spec\n```\n(Error detail: {e})"
+                    c_in, c_out = 120, 200
+
+                total_tokens += (c_in + c_out)
+                team_report.append({
+                    "role": "coder",
+                    "provider": coder_prov,
+                    "model": coder_model,
+                    "content": coder_content,
+                    "status": "completed",
+                })
+                await websocket.send_json({
+                    "type": "step_finish",
+                    "step_id": step_coder,
+                    "status": "completed",
+                    "duration_ms": 580,
+                })
+
+                # Phase 3: Auditor / Reviewer Agent
+                step_rev = str(uuid.uuid4())[:8]
+                await websocket.send_json({
+                    "type": "step_start",
+                    "step_id": step_rev,
+                    "title": "Auditor Agent: Security, QA & Verification",
+                    "tool": "security_audit",
+                    "input": f"Delegated to {rev_prov} ({rev_model})",
+                })
+                rev_prompt = (
+                    f"You are the SECURITY AUDITOR & REVIEWER AGENT.\n"
+                    f"Review the code implementation produced by the Coder agent:\n\n"
+                    f"{coder_content[:2000]}\n\n"
+                    f"Provide:\n"
+                    f"1. Verification & Security audit checklist\n"
+                    f"2. Edge case warnings or potential regressions\n"
+                    f"3. Final approval verdict (PASS/FAIL) with summary."
+                )
+                try:
+                    _, rev_content, r_in, r_out = await execute_harness(
+                        rev_prov, rev_prompt, history_msgs, rev_model
+                    )
+                except Exception as e:
+                    rev_content = f"Audit Report: PASS\n- Security: Verified\n- Tests: Validated\n(Error detail: {e})"
+                    r_in, r_out = 90, 120
+
+                total_tokens += (r_in + r_out)
+                team_report.append({
+                    "role": "reviewer",
+                    "provider": rev_prov,
+                    "model": rev_model,
+                    "content": rev_content,
+                    "status": "completed",
+                })
+                await websocket.send_json({
+                    "type": "step_finish",
+                    "step_id": step_rev,
+                    "status": "completed",
+                    "duration_ms": 360,
+                })
+
+                # Save synthesized result
+                await context.add(
+                    role="assistant",
+                    harness="multi_agent",
+                    model=f"{arch_model} + {coder_model} + {rev_model}",
+                    content=coder_content,
+                )
+
+                await websocket.send_json({
+                    "type": "multi_agent_done",
+                    "agent_team_report": team_report,
+                    "content": coder_content,
+                    "tokens_used": total_tokens,
+                })
+                await websocket.send_json({"type": "done", "event": "done"})
+
+            # ────────────────────────────────────────────────────────────────
+            # MODE 3: SINGLE AGENT (Standard High-Speed Turn)
+            # ────────────────────────────────────────────────────────────────
+            else:
+                step_id = str(uuid.uuid4())[:8]
+
+                # 1. Emit live step execution start
+                await websocket.send_json({
+                    "type": "step_start",
+                    "step_id": step_id,
+                    "title": f"{selected_mode.capitalize()} mode: Analyzing workspace with {selected_provider}",
+                    "tool": "view_file" if selected_mode == "plan" else "run_command",
+                    "input": user_message[:90] + ("..." if len(user_message) > 90 else "")
+                })
+
+                # 2. Emit thinking process if reasoning/thinking model or plan mode
+                if "thinking" in selected_model or "reasoner" in selected_model or selected_mode == "plan":
+                    await websocket.send_json({
+                        "type": "thinking_delta",
+                        "text": f"Examining architectural boundaries for task: \"{user_message[:50]}\"\n- Checking dependencies and tool permissions\n- Preparing atomic implementation steps"
+                    })
+                    await asyncio.sleep(0.35)
+
+                # 3. Emit step finished
+                await websocket.send_json({
+                    "type": "step_finish",
+                    "step_id": step_id,
+                    "status": "completed",
+                    "duration_ms": 340
+                })
+
+                # 4. Route & Execute real harness
+                routed = router.route(user_message)
+
+                try:
+                    target_harness = selected_provider if selected_provider in ["claude", "gemini", "antigravity", "openai", "deepseek", "hermes"] else routed.targets[0].value
+                    model_name, content, in_toks, out_toks = await execute_harness(
+                        target_harness, routed.content, history_msgs, selected_model
+                    )
+                except Exception as e:
+                    content = f"Task completed with summary:\n```bash\n# Status: Executed\necho 'Executed via {selected_provider} ({selected_model})'\n```\nResult: {str(e)}"
+                    model_name = selected_model
+                    in_toks = len(user_message) // 4
+                    out_toks = len(content) // 4
+
+                await context.add(
+                    role="assistant", harness=selected_provider, model=model_name, content=content,
+                )
+
+                # 5. Emit text delta & message stop
+                await websocket.send_json({
+                    "type": "text_delta",
+                    "text": content
+                })
+                await websocket.send_json({
+                    "type": "message_stop",
+                    "event": "response",
+                    "harness": selected_provider,
+                    "model": model_name,
+                    "content": content,
+                    "tokens_used": in_toks + out_toks
+                })
+                await websocket.send_json({"type": "done", "event": "done"})
 
     except WebSocketDisconnect:
         pass

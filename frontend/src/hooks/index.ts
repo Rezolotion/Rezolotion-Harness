@@ -1,6 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { api } from '@/lib/api'
-import type { Provider, Project, TelemetryStats, ChatMessage } from '@/types'
+import type {
+  Provider,
+  Project,
+  TelemetryStats,
+  ChatMessage,
+  ModelOption,
+  ExecutionType,
+  MultiModelResponseItem,
+  AgentTeamRoleOutput,
+} from '@/types'
 import type { ExecutionStep } from '@/components/chat/TaskStepTracker'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -35,6 +44,8 @@ interface RawProvider {
   details: string
   models: string[]
   has_key: boolean
+  email?: string | null
+  connection_id?: string | null
 }
 
 interface RawThread {
@@ -68,9 +79,17 @@ function normalizeProviders(raw: Record<string, RawProvider>): Provider[] {
     name: p.name,
     icon: '',
     connected: p.connected,
-    mode: p.auth_method.toLowerCase().includes('cli') ? 'cli' : 'api_key',
+    mode: p.auth_method.toLowerCase().includes('cli')
+      ? 'cli'
+      : p.auth_method.toLowerCase().includes('oauth')
+      ? 'oauth'
+      : 'api_key',
     env_var: p.type.includes('api') ? `${id.toUpperCase()}_API_KEY` : null,
     note: p.details,
+    models: p.models || [],
+    email: p.email,
+    auth_method: p.auth_method,
+    connection_id: p.connection_id,
   }))
 }
 
@@ -115,6 +134,26 @@ export function useProviders() {
   useEffect(() => { void refresh() }, [refresh])
   return { providers, loading, refresh }
 }
+
+export function useModels() {
+  const [models, setModels] = useState<ModelOption[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const refresh = useCallback(async () => {
+    try {
+      const data = await api.get<{ models: ModelOption[] }>('/api/models')
+      setModels(data.models || [])
+    } catch (e) {
+      console.error('useModels:', e)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { void refresh() }, [refresh])
+  return { models, loading, refresh }
+}
+
 
 export function useProjects() {
   const [projects, setProjects] = useState<Project[]>([])
@@ -163,103 +202,161 @@ export function useChat(sessionId: string) {
     return () => { wsRef.current?.close() }
   }, [sessionId])
 
-  const sendMessage = useCallback((content: string, provider: string, model: string, mode: string = 'build') => {
-    const ws = api.ws(sessionId)
-    wsRef.current = ws
-    setStreaming(true)
-    setStreamText('')
-    setStreamThinking('')
-    setActiveSteps([])
+  const sendMessage = useCallback(
+    (
+      content: string,
+      provider: string,
+      model: string,
+      mode: string = 'build',
+      chatMode: ExecutionType = 'single',
+      models?: ModelOption[]
+    ) => {
+      const ws = api.ws(sessionId)
+      wsRef.current = ws
+      setStreaming(true)
+      setStreamText('')
+      setStreamThinking('')
+      setActiveSteps([])
 
-    const userMsg: ChatMessage = {
-      id: String(++msgIdRef.current),
-      role: 'user',
-      content,
-      timestamp: Date.now(),
-    }
-    setMessages(prev => [...prev, userMsg])
+      const userMsg: ChatMessage = {
+        id: String(++msgIdRef.current),
+        role: 'user',
+        content,
+        timestamp: Date.now(),
+        execution_type: chatMode,
+      }
+      setMessages(prev => [...prev, userMsg])
 
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ content, provider, model, mode }))
-    }
+      ws.onopen = () => {
+        ws.send(
+          JSON.stringify({
+            content,
+            provider,
+            model,
+            mode,
+            chat_mode: chatMode,
+            models:
+              models && models.length > 0
+                ? models.map(m => ({ provider: m.provider, model: m.id }))
+                : [{ provider, model }],
+          })
+        )
+      }
 
-    let buffer = ''
-    let thinkingBuffer = ''
+      let buffer = ''
+      let thinkingBuffer = ''
 
-    ws.onmessage = (ev: MessageEvent) => {
-      try {
-        const evt = JSON.parse(ev.data as string) as {
-          type: string
-          step_id?: string
-          title?: string
-          tool?: string
-          input?: string
-          output?: string
-          status?: 'running' | 'completed' | 'failed' | 'pending'
-          duration_ms?: number
-          text?: string
-          harness?: string
-          model?: string
-          content?: string
-          tokens_used?: number
-        }
-
-        if (evt.type === 'step_start') {
-          const step: ExecutionStep = {
-            id: evt.step_id || String(Date.now()),
-            title: evt.title || `Executing with ${provider}`,
-            toolName: evt.tool || 'run_command',
-            input: evt.input,
-            status: 'running',
+      ws.onmessage = (ev: MessageEvent) => {
+        try {
+          const evt = JSON.parse(ev.data as string) as {
+            type: string
+            step_id?: string
+            title?: string
+            tool?: string
+            input?: string
+            output?: string
+            status?: 'running' | 'completed' | 'failed' | 'pending'
+            duration_ms?: number
+            text?: string
+            harness?: string
+            model?: string
+            content?: string
+            tokens_used?: number
+            responses?: MultiModelResponseItem[]
+            agent_team_report?: AgentTeamRoleOutput[]
           }
-          setActiveSteps(prev => [...prev.filter(s => s.id !== step.id), step])
-        } else if (evt.type === 'step_output') {
-          setActiveSteps(prev =>
-            prev.map(s => (s.id === evt.step_id ? { ...s, output: evt.output } : s))
-          )
-        } else if (evt.type === 'step_finish') {
-          setActiveSteps(prev =>
-            prev.map(s =>
-              s.id === evt.step_id
-                ? {
-                    ...s,
-                    status: (evt.status as 'completed' | 'failed') || 'completed',
-                    durationMs: evt.duration_ms || s.durationMs,
-                    output: evt.output ?? s.output,
-                  }
-                : s
+
+          if (evt.type === 'step_start') {
+            const step: ExecutionStep = {
+              id: evt.step_id || String(Date.now()),
+              title: evt.title || `Executing with ${provider}`,
+              toolName: evt.tool || 'run_command',
+              input: evt.input,
+              status: 'running',
+            }
+            setActiveSteps(prev => [...prev.filter(s => s.id !== step.id), step])
+          } else if (evt.type === 'step_output') {
+            setActiveSteps(prev =>
+              prev.map(s => (s.id === evt.step_id ? { ...s, output: evt.output } : s))
             )
-          )
-        } else if (evt.type === 'thinking_delta' && evt.text) {
-          thinkingBuffer += evt.text
-          setStreamThinking(thinkingBuffer)
-        } else if (evt.type === 'text_delta' && evt.text) {
-          buffer += evt.text
-          setStreamText(buffer)
-          setTokenCount(t => t + Math.ceil(evt.text!.length / 4))
-        } else if (evt.type === 'message_stop' || evt.type === 'done') {
-          const assistantMsg: ChatMessage = {
-            id: String(++msgIdRef.current),
-            role: 'assistant',
-            content: buffer || evt.content || '',
-            provider: evt.harness || provider,
-            model: evt.model || model,
-            thinking: thinkingBuffer || undefined,
-            tokens_used: evt.tokens_used,
-            timestamp: Date.now(),
+          } else if (evt.type === 'step_finish') {
+            setActiveSteps(prev =>
+              prev.map(s =>
+                s.id === evt.step_id
+                  ? {
+                      ...s,
+                      status: (evt.status as 'completed' | 'failed') || 'completed',
+                      durationMs: evt.duration_ms || s.durationMs,
+                      output: evt.output ?? s.output,
+                    }
+                  : s
+              )
+            )
+          } else if (evt.type === 'thinking_delta' && evt.text) {
+            thinkingBuffer += evt.text
+            setStreamThinking(thinkingBuffer)
+          } else if (evt.type === 'text_delta' && evt.text) {
+            buffer += evt.text
+            setStreamText(buffer)
+            setTokenCount(t => t + Math.ceil(evt.text!.length / 4))
+          } else if (evt.type === 'multi_model_done') {
+            const assistantMsg: ChatMessage = {
+              id: String(++msgIdRef.current),
+              role: 'assistant',
+              content: 'Parallel multi-model comparison evaluation completed.',
+              execution_type: 'multi_model',
+              multi_model_responses: evt.responses,
+              tokens_used: evt.tokens_used,
+              timestamp: Date.now(),
+            }
+            setMessages(prev => [...prev, assistantMsg])
+            setStreamText('')
+            setStreamThinking('')
+            setStreaming(false)
+            ws.close()
+          } else if (evt.type === 'multi_agent_done') {
+            const assistantMsg: ChatMessage = {
+              id: String(++msgIdRef.current),
+              role: 'assistant',
+              content: evt.content || 'Multi-agent engineering report completed.',
+              execution_type: 'multi_agent',
+              agent_team_report: evt.agent_team_report,
+              tokens_used: evt.tokens_used,
+              timestamp: Date.now(),
+            }
+            setMessages(prev => [...prev, assistantMsg])
+            setStreamText('')
+            setStreamThinking('')
+            setStreaming(false)
+            ws.close()
+          } else if (evt.type === 'message_stop' || evt.type === 'done') {
+            const assistantMsg: ChatMessage = {
+              id: String(++msgIdRef.current),
+              role: 'assistant',
+              content: buffer || evt.content || '',
+              provider: evt.harness || provider,
+              model: evt.model || model,
+              thinking: thinkingBuffer || undefined,
+              tokens_used: evt.tokens_used,
+              timestamp: Date.now(),
+              execution_type: 'single',
+            }
+            setMessages(prev => [...prev, assistantMsg])
+            setStreamText('')
+            setStreamThinking('')
+            setStreaming(false)
+            ws.close()
           }
-          setMessages(prev => [...prev, assistantMsg])
-          setStreamText('')
-          setStreamThinking('')
-          setStreaming(false)
-          ws.close()
+        } catch (_) {
+          /* skip malformed */
         }
-      } catch (_) { /* skip malformed */ }
-    }
+      }
 
-    ws.onclose = () => setStreaming(false)
-    ws.onerror = () => setStreaming(false)
-  }, [sessionId])
+      ws.onclose = () => setStreaming(false)
+      ws.onerror = () => setStreaming(false)
+    },
+    [sessionId]
+  )
 
   return {
     messages,

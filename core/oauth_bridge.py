@@ -4,10 +4,12 @@ Connects to local 9Router instance to handle OAuth flows (Claude Code, AntiGravi
 and route inference requests seamlessly.
 """
 import hashlib
+import json
 import os
 import urllib.parse
 from typing import Any, Dict, List, Optional
 import httpx
+
 
 APP_NAME = "9router"
 DEFAULT_9ROUTER_URL = "http://localhost:20128"
@@ -41,6 +43,20 @@ def get_cli_token() -> str:
     salt = "9r-cli-auth"
     token = hashlib.sha256((raw_machine_id + salt + secret).encode("utf-8")).hexdigest()[:16]
     return token
+
+
+def get_9router_api_key() -> str:
+    db_path = os.path.expanduser("~/.9router/db/data.sqlite")
+    if os.path.exists(db_path):
+        try:
+            import sqlite3
+            conn = sqlite3.connect(db_path)
+            row = conn.execute("SELECT key FROM apiKeys WHERE isActive = 1 ORDER BY createdAt ASC LIMIT 1").fetchone()
+            if row:
+                return row[0]
+        except Exception:
+            pass
+    return os.environ.get("NINE_ROUTER_API_KEY", "")
 
 
 class NineRouterBridge:
@@ -136,11 +152,40 @@ class NineRouterBridge:
             "model": model,
             "messages": messages,
             "max_tokens": max_tokens,
+            "stream": False,
         }
+        headers = self._headers()
+        api_key = get_9router_api_key()
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+
         async with httpx.AsyncClient(timeout=120.0) as client:
-            r = await client.post(url, json=payload)
+            r = await client.post(url, json=payload, headers=headers)
             if r.status_code == 200:
-                return r.json()
+                if "application/json" in r.headers.get("content-type", ""):
+                    return r.json()
+                # If SSE format
+                full_text = ""
+                usage = {"prompt_tokens": len(str(messages)) // 4, "completion_tokens": 0}
+                for line in r.text.split("\n"):
+                    line = line.strip()
+                    if line.startswith("data: ") and not line.endswith("[DONE]"):
+                        try:
+                            chunk = json.loads(line[6:])
+                            choices = chunk.get("choices", [])
+                            if choices:
+                                delta = choices[0].get("delta", {})
+                                content_piece = delta.get("content")
+                                if content_piece:
+                                    full_text += str(content_piece)
+                            if "usage" in chunk and chunk["usage"]:
+                                usage = chunk["usage"]
+                        except Exception:
+                            pass
+                return {
+                    "choices": [{"message": {"role": "assistant", "content": full_text}}],
+                    "usage": usage
+                }
             raise ValueError(f"Chat completion failed ({r.status_code}): {r.text}")
 
 

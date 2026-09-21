@@ -89,7 +89,24 @@
     font-family: var(--font-mono);
   }
 
+  /* Modern dark hairline scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.32 0.01 250 / 0.6);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.45 0.02 250 / 0.8);
+  }
+
   /* DESIGN.md §2 — outline, never box-shadow: box-shadow rings vanish in forced-colors mode. */
+
   .focus-ring,
   :where(a, button, input, textarea, select, [tabindex]):focus-visible {
     outline: 2px solid var(--ring);

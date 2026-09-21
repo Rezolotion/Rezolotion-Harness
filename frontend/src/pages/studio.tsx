@@ -8,13 +8,13 @@ import {
   deleteThread,
   renameThread,
 } from '@/hooks'
-import type { Project, Thread } from '@/types'
+import type { Project, Thread, ModelOption } from '@/types'
 import { ProjectsSidebar } from '@/components/sidebar/ProjectsSidebar'
 import { ProvidersModal } from '@/components/providers/ProvidersModal'
 import { ProjectCreationWizard } from '@/components/projects/ProjectCreationWizard'
 import { AuthGate } from '@/components/auth/AuthGate'
 import { MessageList } from '@/components/chat/MessageList'
-import { Composer, AgentMode } from '@/components/chat/Composer'
+import { Composer, AgentMode, ExecutionPipelineMode } from '@/components/chat/Composer'
 import { FileExplorer } from '@/components/explorer/FileExplorer'
 import { DiffViewer } from '@/components/explorer/DiffViewer'
 import { ObservabilityDashboard } from '@/components/observability/ObservabilityDashboard'
@@ -175,8 +175,15 @@ export function StudioPage() {
   }
 
   const handleSend = useCallback(
-    (content: string, provider: string, model: string, mode: AgentMode) => {
-      sendMessage(content, provider, model, mode)
+    (
+      content: string,
+      provider: string,
+      model: string,
+      mode: AgentMode,
+      chatMode: ExecutionPipelineMode = 'single',
+      models?: ModelOption[]
+    ) => {
+      sendMessage(content, provider, model, mode, chatMode, models)
     },
     [sendMessage]
   )
@@ -330,6 +337,7 @@ export function StudioPage() {
             streaming={streaming}
             tokenCount={tokenCount}
             onSend={handleSend}
+            onOpenProviders={() => setShowProviders(true)}
           />
         </div>
 
