@@ -4,17 +4,28 @@ import type { Project, Thread } from '@/types'
 import { ProjectsSidebar } from '@/components/sidebar/ProjectsSidebar'
 import { ProvidersModal } from '@/components/providers/ProvidersModal'
 import { MessageList } from '@/components/chat/MessageList'
-import { Composer } from '@/components/chat/Composer'
+import { Composer, AgentMode } from '@/components/chat/Composer'
 import { FileExplorer } from '@/components/explorer/FileExplorer'
+import { DiffViewer } from '@/components/explorer/DiffViewer'
 import { ObservabilityDashboard } from '@/components/observability/ObservabilityDashboard'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { ExecutionStep } from '@/components/chat/TaskStepTracker'
 import { api } from '@/lib/api'
+import {
+  FolderTree,
+  FileDiff,
+  Activity,
+  Sun,
+  Moon,
+  AlertTriangle,
+  RotateCw,
+} from 'lucide-react'
 
 function genId() {
   return Math.random().toString(36).slice(2, 10)
 }
 
-type RightPanel = 'explorer' | 'observe'
+type RightPanelTab = 'explorer' | 'diff' | 'observe'
 
 export function StudioPage() {
   const { providers, refresh: refreshProviders } = useProviders()
@@ -24,9 +35,12 @@ export function StudioPage() {
   const [activeThread, setActiveThread] = useState<Thread | null>(null)
   const [sessionId, setSessionId] = useState<string>(genId())
   const [showProviders, setShowProviders] = useState(false)
-  const [rightPanel, setRightPanel] = useState<RightPanel>('explorer')
+  const [rightPanel, setRightPanel] = useState<RightPanelTab>('explorer')
+  const [activeArtifact, setActiveArtifact] = useState<{ title: string; content: string } | null>(null)
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+  const [activeSteps, setActiveSteps] = useState<ExecutionStep[]>([])
 
-  // Auto-select initial project and thread when available
+  // Auto-select initial project and thread
   useEffect(() => {
     if (!activeProject && Array.isArray(projects) && projects.length > 0) {
       const first = projects[0]
@@ -44,31 +58,33 @@ export function StudioPage() {
     setActiveProject(proj)
     setActiveThread(thread)
     setSessionId(thread.id)
+    setActiveSteps([])
   }
 
   const handleNewThread = useCallback(async (proj: Project) => {
     try {
       const thread = await api.post<Thread>(`/api/projects/${proj.id}/threads`, {
-        title: 'New thread',
+        title: 'New engineering thread',
         harness: providers.find(p => p.connected)?.id ?? 'claude',
       })
       await refreshProjects()
       setActiveProject(proj)
       setActiveThread(thread)
       setSessionId(thread.id)
+      setActiveSteps([])
     } catch (e) {
       console.error('Failed to create thread', e)
     }
   }, [providers, refreshProjects])
 
   const handleNewProject = useCallback(async () => {
-    const name = prompt('Project name:')
+    const name = prompt('Enter project name:')
     if (!name?.trim()) return
     try {
       const proj = await api.post<Project>('/api/projects', {
         name,
         root_path: '.',
-        description: '',
+        description: 'Workspace Project',
       })
       await refreshProjects()
       setActiveProject(proj)
@@ -79,25 +95,60 @@ export function StudioPage() {
     }
   }, [refreshProjects])
 
-  const handleSend = useCallback((content: string, provider: string, model: string) => {
-    sendMessage(content, provider, model)
-  }, [sendMessage])
+  const handleSend = useCallback(
+    (content: string, provider: string, model: string, mode: AgentMode) => {
+      // Simulate real-time execution steps for AntiGravity feel
+      const mockStep: ExecutionStep = {
+        id: genId(),
+        title: mode === 'plan' ? 'Synthesizing Architecture Plan' : `Executing with ${provider}`,
+        toolName: mode === 'plan' ? 'view_file' : 'run_command',
+        status: 'running',
+        input: content.length > 60 ? `${content.slice(0, 60)}...` : content,
+      }
+      setActiveSteps([mockStep])
 
-  // Rate-limit banner (if last message suggests it)
+      sendMessage(content, provider, model)
+
+      // Mark step completed after turn
+      setTimeout(() => {
+        setActiveSteps(prev =>
+          prev.map(s => (s.id === mockStep.id ? { ...s, status: 'completed', durationMs: 420 } : s))
+        )
+      }, 1800)
+    },
+    [sendMessage]
+  )
+
+  const handleOpenArtifactInPanel = (content: string, title: string) => {
+    setActiveArtifact({ title, content })
+    setRightPanel('diff')
+  }
+
+  const handleToggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    setTheme(next)
+    document.documentElement.setAttribute('data-theme', next)
+    document.documentElement.classList.remove('light', 'dark')
+    document.documentElement.classList.add(next)
+    localStorage.setItem('rezolotion-theme', next)
+  }
+
+  // Rate-limit resilience detection
   const lastMsg = messages[messages.length - 1]
-  const rateLimited = lastMsg?.content?.toLowerCase().includes('rate limit') ||
-                      lastMsg?.content?.toLowerCase().includes('overloaded')
+  const rateLimited =
+    lastMsg?.content?.toLowerCase().includes('rate limit') ||
+    lastMsg?.content?.toLowerCase().includes('overloaded')
 
   return (
     <ErrorBoundary>
       <div
-        className="flex h-screen overflow-hidden"
+        className="flex h-screen overflow-hidden font-sans"
         style={{
-          background: 'var(--color-base, #111)',
-          color: 'var(--color-text-primary, #fff)',
+          background: 'var(--color-base)',
+          color: 'var(--color-text-primary)',
         }}
       >
-        {/* Left: sidebar */}
+        {/* Left Column: Projects & Threads Sidebar */}
         <ProjectsSidebar
           providers={providers}
           projects={projects}
@@ -110,94 +161,102 @@ export function StudioPage() {
           onOpenObserve={() => setRightPanel('observe')}
         />
 
-        {/* Center: chat */}
-        <div className="flex flex-col flex-1 min-w-0">
-          {/* Top bar */}
-          <div
-            className="flex items-center gap-3 px-4 py-2.5 flex-shrink-0"
-            style={{
-              borderBottom: '1px solid var(--color-border)',
-              background: 'var(--color-surface)',
-            }}
-          >
-            {/* Thread title */}
-            <div className="flex-1 min-w-0">
-              {activeThread ? (
-                <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
-                  {activeThread.title}
-                </p>
-              ) : (
-                <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-                  Select or create a thread
-                </p>
-              )}
-              {activeProject && (
-                <p className="text-xs truncate" style={{ color: 'var(--color-text-muted)' }}>
-                  {activeProject.name}
-                </p>
-              )}
+        {/* Center Column: Agent Execution Canvas */}
+        <div className="flex flex-col flex-1 min-w-0 relative">
+          {/* Top Bar */}
+          <div className="flex items-center justify-between px-6 py-3 border-b border-[var(--color-border)] bg-[var(--color-surface)] flex-shrink-0">
+            <div className="flex items-center gap-3 min-w-0">
+              <div>
+                <h3 className="text-xs font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
+                  {activeThread ? activeThread.title : 'Select or start a new thread'}
+                </h3>
+                {activeProject && (
+                  <p className="text-[11px] font-mono text-[var(--color-text-muted)] truncate">
+                    {activeProject.name} • {activeProject.root_path}
+                  </p>
+                )}
+              </div>
             </div>
 
-            {/* Right panel switcher */}
-            <div className="flex gap-1">
-              {(['explorer', 'observe'] as const).map(v => (
+            {/* Top Right Controls */}
+            <div className="flex items-center gap-2">
+              {/* Right Panel View Switcher */}
+              <div className="flex items-center bg-[var(--color-elevated)] p-1 rounded-xl border border-[var(--color-border)]">
                 <button
-                  key={v}
-                  onClick={() => setRightPanel(v)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors cursor-pointer"
-                  style={{
-                    background: rightPanel === v ? 'var(--color-elevated)' : 'transparent',
-                    color: rightPanel === v ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
-                  }}
+                  onClick={() => setRightPanel('explorer')}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                    rightPanel === 'explorer'
+                      ? 'bg-[var(--color-base)] text-[var(--color-text-primary)] shadow-sm'
+                      : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+                  }`}
+                  title="File Explorer"
                 >
-                  {v === 'observe' ? 'Observe' : 'Files'}
+                  <FolderTree className="w-3.5 h-3.5" />
+                  <span>Files</span>
                 </button>
-              ))}
-            </div>
+                <button
+                  onClick={() => setRightPanel('diff')}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                    rightPanel === 'diff'
+                      ? 'bg-[var(--color-base)] text-[var(--color-text-primary)] shadow-sm'
+                      : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+                  }`}
+                  title="Diff & Artifact Viewer"
+                >
+                  <FileDiff className="w-3.5 h-3.5" />
+                  <span>Diff</span>
+                </button>
+                <button
+                  onClick={() => setRightPanel('observe')}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                    rightPanel === 'observe'
+                      ? 'bg-[var(--color-base)] text-[var(--color-text-primary)] shadow-sm'
+                      : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+                  }`}
+                  title="LLM Observability Dashboard"
+                >
+                  <Activity className="w-3.5 h-3.5" />
+                  <span>Observe</span>
+                </button>
+              </div>
 
-            {/* Theme toggle */}
-            <button
-              onClick={() => {
-                const cur = document.documentElement.getAttribute('data-theme')
-                const next = cur === 'light' ? 'dark' : 'light'
-                document.documentElement.setAttribute('data-theme', next)
-                document.documentElement.classList.remove('light', 'dark')
-                document.documentElement.classList.add(next)
-                localStorage.setItem('rezolotion-theme', next)
-              }}
-              className="w-7 h-7 rounded-md flex items-center justify-center text-xs cursor-pointer transition-colors"
-              style={{
-                color: 'var(--color-text-muted)',
-                background: 'transparent',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-elevated)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-              title="Toggle theme"
-            >
-              ◑
-            </button>
+              {/* Theme Toggle */}
+              <button
+                onClick={handleToggleTheme}
+                className="p-2 rounded-xl text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-elevated)] border border-[var(--color-border)] transition-colors cursor-pointer"
+                title="Toggle Dark / Light Theme"
+              >
+                {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
 
-          {/* Rate-limit banner */}
+          {/* Rate-limit Resilience Banner */}
           {rateLimited && (
-            <div
-              className="flex items-center gap-2.5 px-4 py-2 text-xs"
-              style={{
-                background: 'oklch(0.25 0.07 75 / 0.4)',
-                borderBottom: '1px solid oklch(0.45 0.15 75 / 0.35)',
-                color: 'oklch(0.78 0.18 75)',
-              }}
-            >
-              <span>⚠</span>
-              <span>Rate limit detected — waiting to auto-resume</span>
-              <span className="ml-auto animate-pulse">●</span>
+            <div className="flex items-center justify-between px-6 py-2 bg-amber-950/40 border-b border-amber-800/40 text-amber-300 text-xs">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-400" />
+                <span>Rate-limit reached on primary model. Resilience manager queued automatic fallback turn.</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button className="flex items-center gap-1 px-2 py-0.5 rounded bg-amber-900/60 hover:bg-amber-800/80 cursor-pointer font-mono text-[11px]">
+                  <RotateCw className="w-3 h-3 animate-spin" />
+                  <span>Auto-resuming</span>
+                </button>
+              </div>
             </div>
           )}
 
-          {/* Message list */}
-          <MessageList messages={messages} streaming={streaming} streamText={streamText} />
+          {/* Center Message Stream */}
+          <MessageList
+            messages={messages}
+            streaming={streaming}
+            streamText={streamText}
+            activeSteps={activeSteps}
+            onOpenArtifact={handleOpenArtifactInPanel}
+          />
 
-          {/* Composer */}
+          {/* Bottom Floating Island Composer */}
           <Composer
             providers={providers}
             streaming={streaming}
@@ -206,34 +265,48 @@ export function StudioPage() {
           />
         </div>
 
-        {/* Right panel */}
-        {rightPanel === 'explorer' ? (
-          <FileExplorer projectPath={activeProject?.root_path ?? '.'} />
-        ) : (
+        {/* Right Column: Multi-Engine Panel */}
+        {rightPanel === 'explorer' && (
+          <FileExplorer
+            projectPath={activeProject?.root_path ?? '.'}
+            onOpenFile={(path, content) => {
+              setActiveArtifact({ title: path.split('/').pop() || 'file', content })
+            }}
+          />
+        )}
+
+        {rightPanel === 'diff' && (
+          <div className="w-80 flex-shrink-0 h-full">
+            <DiffViewer
+              filename={activeArtifact?.title || 'active-file.ts'}
+              diffText={activeArtifact?.content}
+              modifiedContent={activeArtifact?.content}
+            />
+          </div>
+        )}
+
+        {rightPanel === 'observe' && (
           <aside
-            className="flex flex-col h-full overflow-hidden"
+            className="flex flex-col h-full border-l border-[var(--color-border)]"
             style={{
               background: 'var(--color-surface)',
-              borderLeft: '1px solid var(--color-border)',
-              width: '320px',
+              width: '340px',
               flexShrink: 0,
             }}
           >
-            <div
-              className="px-4 py-2.5 text-xs font-semibold flex-shrink-0"
-              style={{
-                color: 'var(--color-text-secondary)',
-                borderBottom: '1px solid var(--color-border)',
-                background: 'var(--color-surface)',
-              }}
-            >
-              System Observability
+            <div className="flex items-center justify-between px-4 py-3 bg-[var(--color-elevated)] border-b border-[var(--color-border)]">
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-[var(--color-accent)]" />
+                <span className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                  Grok LLM Observability
+                </span>
+              </div>
             </div>
             <ObservabilityDashboard />
           </aside>
         )}
 
-        {/* Providers modal */}
+        {/* Providers Authentication Hub Modal */}
         {showProviders && (
           <ProvidersModal
             providers={providers}

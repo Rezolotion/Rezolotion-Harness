@@ -43,6 +43,12 @@
   --color-text-primary:   var(--fg);
   --color-text-secondary: var(--fg-muted);
   --color-text-muted:     var(--fg-subtle);
+  --color-claude:         oklch(0.68 0.16 45);
+  --color-gemini:         oklch(0.72 0.18 165);
+  --color-deepseek:       oklch(0.62 0.18 265);
+  --color-openai:         oklch(0.70 0.15 110);
+  --color-openrouter:     oklch(0.65 0.20 300);
+  --color-hermes:         oklch(0.75 0.18 70);
   --font-sans:            'Inter', system-ui, sans-serif;
   --font-mono:            'JetBrains Mono', 'Fira Code', monospace;
 }

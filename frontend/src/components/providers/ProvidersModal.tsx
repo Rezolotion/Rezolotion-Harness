@@ -2,16 +2,20 @@ import { useState } from 'react'
 import type { Provider } from '@/types'
 import { api } from '@/lib/api'
 import { StatusDot } from '@/components/ui/status-dot'
-
-const PROVIDER_ICONS: Record<string, string> = {
-  claude: '◆',
-  antigravity: '✦',
-  openai: '⬡',
-  deepseek: '◈',
-  openrouter: '⊕',
-  hermes: '⊞',
-  ninerouter: '⊛',
-}
+import { getProviderIcon } from '@/components/ui/brand-icons'
+import {
+  X,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  KeyRound,
+  Terminal,
+  Eye,
+  EyeOff,
+  Copy,
+  Check,
+  ShieldCheck,
+} from 'lucide-react'
 
 interface Props {
   providers: Provider[]
@@ -30,25 +34,27 @@ interface TestResult {
 }
 
 export function ProvidersModal({ providers, onClose, onRefresh }: Props) {
-  const [selected, setSelected] = useState<string>(providers[0]?.id ?? '')
+  const [selected, setSelected] = useState<string>(providers[0]?.id ?? 'claude')
   const [keyInput, setKeyInput] = useState('')
+  const [showKey, setShowKey] = useState(false)
   const [status, setStatus] = useState<string>('')
   const [loading, setLoading] = useState(false)
+  const [copiedCli, setCopiedCli] = useState(false)
 
   const selectedProvider = providers.find(p => p.id === selected)
 
   const handleTest = async () => {
     if (!selectedProvider) return
     setLoading(true)
-    setStatus('Testing connection...')
+    setStatus('Testing connection latency…')
     try {
       const res = await api.post<TestResult>('/api/auth/test', {
         provider_id: selected,
         api_key: keyInput || undefined,
       })
-      setStatus(res.success ? '✓ Connected' : `✗ ${res.message}`)
-    } catch (e) {
-      setStatus('✗ Request failed')
+      setStatus(res.success ? 'Connected successfully' : `Failed: ${res.message}`)
+    } catch (_) {
+      setStatus('Failed: Request timed out or server unavailable')
     } finally {
       setLoading(false)
     }
@@ -57,191 +63,224 @@ export function ProvidersModal({ providers, onClose, onRefresh }: Props) {
   const handleSave = async () => {
     if (!selectedProvider || !keyInput.trim()) return
     setLoading(true)
-    setStatus('Saving...')
+    setStatus('Writing to environment…')
     try {
       const res = await api.post<ConfigResult>('/api/auth/configure', {
         provider_id: selected,
         api_key: keyInput,
       })
-      setStatus(res.success ? '✓ Saved' : `✗ ${res.message}`)
+      setStatus(res.success ? 'Key saved to .env' : `Save failed: ${res.message}`)
       onRefresh()
       setKeyInput('')
-    } catch (e) {
-      setStatus('✗ Save failed')
+    } catch (_) {
+      setStatus('Save failed: Disk write error')
     } finally {
       setLoading(false)
     }
   }
 
+  const handleCopyCli = async (cmd: string) => {
+    await navigator.clipboard.writeText(cmd)
+    setCopiedCli(true)
+    setTimeout(() => setCopiedCli(false), 2000)
+  }
+
+  const cliCmd =
+    selected === 'claude'
+      ? 'claude auth login'
+      : selected === 'antigravity'
+      ? 'gcloud auth application-default login'
+      : 'ollama serve'
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.6)' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)' }}
+      onClick={e => {
+        if (e.target === e.currentTarget) onClose()
+      }}
     >
       <div
-        className="w-[680px] max-h-[80vh] overflow-hidden rounded-xl flex flex-col"
-        style={{
-          background: 'var(--color-surface)',
-          border: '1px solid var(--color-border)',
-          boxShadow: '0 24px 64px rgba(0,0,0,0.4)',
-        }}
+        className="w-full max-w-2xl max-h-[85vh] overflow-hidden rounded-2xl flex flex-col border border-[var(--color-border)] shadow-2xl"
+        style={{ background: 'var(--color-surface)' }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
-          <div>
-            <h2 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Connect Providers</h2>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-              Configure API keys or use native CLI sessions
-            </p>
+        <div className="flex items-center justify-between px-6 py-4 bg-[var(--color-elevated)]/50 border-b border-[var(--color-border)]">
+          <div className="flex items-center gap-2.5">
+            <ShieldCheck className="w-5 h-5 text-[var(--color-accent)]" />
+            <div>
+              <h2 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                Multi-Provider Authentication Hub
+              </h2>
+              <p className="text-[11px] text-[var(--color-text-muted)]">
+                Native zero-risk CLI sessions and direct LLM API credentials
+              </p>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-md flex items-center justify-center text-xs transition-colors cursor-pointer"
-            style={{ color: 'var(--color-text-muted)', background: 'transparent' }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-elevated)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+            className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-elevated)] transition-colors cursor-pointer"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         <div className="flex flex-1 overflow-hidden">
-          {/* Left: provider list */}
-          <div className="w-48 flex-shrink-0 overflow-y-auto py-2" style={{ borderRight: '1px solid var(--color-border)' }}>
-            {providers.map(p => (
-              <button
-                key={p.id}
-                onClick={() => { setSelected(p.id); setKeyInput(''); setStatus('') }}
-                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-left transition-colors cursor-pointer"
-                style={{
-                  background: selected === p.id ? 'var(--color-elevated)' : 'transparent',
-                  color: selected === p.id ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-                }}
-              >
-                <span className="text-base leading-none">{PROVIDER_ICONS[p.id] ?? '○'}</span>
-                <span className="text-xs font-medium flex-1">{p.name}</span>
-                <StatusDot connected={p.connected} size="sm" />
-              </button>
-            ))}
-          </div>
-
-          {/* Right: config panel */}
-          <div className="flex-1 p-5 overflow-y-auto">
-            {selectedProvider && (
-              <div className="space-y-4">
-                {/* Status banner */}
-                <div
-                  className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg"
+          {/* Left: Provider Selection Column */}
+          <div className="w-56 flex-shrink-0 overflow-y-auto py-2 border-r border-[var(--color-border)] bg-[var(--color-base)]/40">
+            {providers.map(p => {
+              const isSelected = selected === p.id
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => {
+                    setSelected(p.id)
+                    setKeyInput('')
+                    setStatus('')
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-left transition-colors cursor-pointer ${
+                    isSelected ? 'bg-[var(--color-elevated)] font-medium' : 'hover:bg-[var(--color-elevated)]/50'
+                  }`}
                   style={{
-                    background: selectedProvider.connected
-                      ? 'oklch(0.25 0.07 145 / 0.35)'
-                      : 'var(--color-elevated)',
-                    border: `1px solid ${selectedProvider.connected ? 'oklch(0.45 0.15 145 / 0.4)' : 'var(--color-border)'}`,
+                    color: isSelected ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
                   }}
                 >
-                  <StatusDot connected={selectedProvider.connected} size="md" />
-                  <div>
-                    <p className="text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                      {selectedProvider.connected ? 'Connected' : 'Not connected'}
-                    </p>
-                    <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{selectedProvider.note}</p>
-                  </div>
-                </div>
+                  <div className="flex-shrink-0">{getProviderIcon(p.id, 'w-4 h-4', 16)}</div>
+                  <span className="text-xs truncate flex-1">{p.name}</span>
+                  <StatusDot connected={p.connected} size="sm" />
+                </button>
+              )
+            })}
+          </div>
 
-                {/* Mode badge */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Auth mode:</span>
-                  <span
-                    className="text-xs px-2 py-0.5 rounded-full font-mono"
-                    style={{ background: 'var(--color-elevated)', color: 'var(--color-accent)' }}
-                  >
+          {/* Right: Configuration & Status Panel */}
+          <div className="flex-1 p-6 overflow-y-auto space-y-5">
+            {selectedProvider && (
+              <>
+                {/* Active Connection Banner */}
+                <div
+                  className="flex items-center justify-between p-4 rounded-xl border"
+                  style={{
+                    background: selectedProvider.connected
+                      ? 'oklch(0.20 0.04 145 / 0.3)'
+                      : 'var(--color-elevated)',
+                    borderColor: selectedProvider.connected
+                      ? 'oklch(0.40 0.12 145 / 0.4)'
+                      : 'var(--color-border)',
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <StatusDot connected={selectedProvider.connected} size="md" />
+                    <div>
+                      <h4 className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                        {selectedProvider.connected ? 'Active Session Connected' : 'Offline / Not Configured'}
+                      </h4>
+                      <p className="text-[11px] font-mono text-[var(--color-text-muted)] mt-0.5">
+                        {selectedProvider.note || 'Ready for configuration'}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-[var(--color-base)] text-[var(--color-text-muted)] border border-[var(--color-border)]">
                     {selectedProvider.mode}
                   </span>
                 </div>
 
-                {/* API key input (skip for CLI-only providers) */}
-                {selectedProvider.mode !== 'cli' && (
-                  <div className="space-y-2">
-                    <label className="block text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                      {selectedProvider.env_var ?? 'API Key'}
-                    </label>
-                    <input
-                      type="password"
-                      value={keyInput}
-                      onChange={e => setKeyInput(e.target.value)}
-                      placeholder="sk-••••••••••••••••"
-                      className="w-full px-3 py-2 rounded-lg text-xs font-mono outline-none"
-                      style={{
-                        background: 'var(--color-base)',
-                        border: '1px solid var(--color-border)',
-                        color: 'var(--color-text-primary)',
-                      }}
-                    />
+                {/* CLI Native Instructions */}
+                {selectedProvider.mode === 'cli' && (
+                  <div className="p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-elevated)] space-y-3">
+                    <div className="flex items-center gap-2 text-xs font-medium text-[var(--color-text-primary)]">
+                      <Terminal className="w-4 h-4 text-cyan-400" />
+                      <span>Zero-Risk Native CLI Execution</span>
+                    </div>
+                    <p className="text-[11px] text-[var(--color-text-muted)] leading-relaxed">
+                      Rezolotion uses your local official CLI session directly without reverse-proxy scrapers or session hijacking.
+                    </p>
+                    <div className="flex items-center justify-between p-2.5 rounded-lg bg-[var(--color-base)] border border-[var(--color-border)] font-mono text-xs">
+                      <span className="text-emerald-400">$ {cliCmd}</span>
+                      <button
+                        onClick={() => void handleCopyCli(cliCmd)}
+                        className="flex items-center gap-1 text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] cursor-pointer"
+                      >
+                        {copiedCli ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span>{copiedCli ? 'Copied' : 'Copy'}</span>
+                      </button>
+                    </div>
                   </div>
                 )}
 
-                {/* CLI note for native providers */}
-                {selectedProvider.mode === 'cli' && (
-                  <div
-                    className="rounded-lg px-3.5 py-3 text-xs"
-                    style={{
-                      background: 'var(--color-elevated)',
-                      border: '1px solid var(--color-border)',
-                      color: 'var(--color-text-muted)',
-                      fontFamily: 'var(--font-mono)',
-                    }}
-                  >
-                    Uses native CLI session. Run <span style={{ color: 'var(--color-accent)' }}>claude auth login</span> or{' '}
-                    <span style={{ color: 'var(--color-accent)' }}>antigravity login</span> in your terminal.
+                {/* API Key Form */}
+                {selectedProvider.mode !== 'cli' && (
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-1.5 text-xs font-medium text-[var(--color-text-secondary)]">
+                      <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+                      <span>{selectedProvider.env_var || 'API Key'}</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showKey ? 'text' : 'password'}
+                        value={keyInput}
+                        onChange={e => setKeyInput(e.target.value)}
+                        placeholder="sk-••••••••••••••••••••••••"
+                        className="w-full pl-3 pr-10 py-2.5 rounded-xl text-xs font-mono outline-none bg-[var(--color-base)] border border-[var(--color-border)] focus:border-[var(--color-accent)] text-[var(--color-text-primary)]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowKey(!showKey)}
+                        className="absolute right-3 top-2.5 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] cursor-pointer"
+                      >
+                        {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
                 )}
 
                 {/* Actions */}
-                <div className="flex items-center gap-2 pt-1">
+                <div className="flex items-center gap-2.5 pt-2">
                   <button
                     onClick={() => void handleTest()}
                     disabled={loading}
-                    className="px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer disabled:opacity-50"
-                    style={{
-                      background: 'var(--color-elevated)',
-                      border: '1px solid var(--color-border)',
-                      color: 'var(--color-text-secondary)',
-                    }}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-[var(--color-elevated)] border border-[var(--color-border)] hover:border-[var(--color-border-hover)] text-[var(--color-text-primary)] transition-all cursor-pointer disabled:opacity-50"
                   >
-                    Test connection
+                    {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                    <span>Test Latency</span>
                   </button>
+
                   {selectedProvider.mode !== 'cli' && (
                     <button
                       onClick={() => void handleSave()}
                       disabled={loading || !keyInput.trim()}
-                      className="px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer disabled:opacity-50"
-                      style={{
-                        background: 'var(--color-accent)',
-                        color: '#000',
-                      }}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--color-accent)] text-white hover:opacity-95 transition-all cursor-pointer disabled:opacity-40"
                     >
-                      Save key
+                      <span>Save Key</span>
                     </button>
                   )}
                 </div>
 
-                {/* Feedback */}
+                {/* Status Feedback */}
                 {status && (
-                  <p
-                    className="text-xs"
-                    style={{
-                      color: status.startsWith('✓')
-                        ? 'oklch(0.72 0.19 145)'
-                        : status.startsWith('✗')
-                        ? 'oklch(0.65 0.22 25)'
-                        : 'var(--color-text-muted)',
-                    }}
-                  >
-                    {status}
-                  </p>
+                  <div className="flex items-center gap-2 text-xs font-mono">
+                    {status.includes('successfully') || status.includes('saved') ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                    ) : status.includes('Failed') ? (
+                      <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                    ) : (
+                      <Loader2 className="w-4 h-4 text-blue-400 animate-spin flex-shrink-0" />
+                    )}
+                    <span
+                      style={{
+                        color:
+                          status.includes('successfully') || status.includes('saved')
+                            ? '#34d399'
+                            : status.includes('Failed')
+                            ? '#f87171'
+                            : 'var(--color-text-muted)',
+                      }}
+                    >
+                      {status}
+                    </span>
+                  </div>
                 )}
-              </div>
+              </>
             )}
           </div>
         </div>

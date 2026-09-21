@@ -1,202 +1,311 @@
 import { useState, useRef, type KeyboardEvent } from 'react'
 import type { Provider } from '@/types'
+import {
+  Zap,
+  FileText,
+  MessageSquare,
+  ChevronDown,
+  ArrowUp,
+  Sparkles,
+  Command,
+  Flame,
+  Cpu,
+} from 'lucide-react'
+import { getProviderIcon } from '@/components/ui/brand-icons'
+import { SlashCommandMenu, SlashCommand } from '@/components/chat/SlashCommandMenu'
 
-const MODELS: Record<string, string[]> = {
-  claude: ['claude-opus-4-5', 'claude-sonnet-4-5', 'claude-haiku-4-5'],
-  antigravity: ['gemini-2.5-pro', 'gemini-2.5-flash'],
-  openai: ['gpt-4o', 'gpt-4o-mini', 'o3'],
-  deepseek: ['deepseek-chat', 'deepseek-reasoner'],
-  openrouter: ['auto'],
-  hermes: ['hermes-3-llama-3.1-70b'],
-  ninerouter: ['auto'],
+export type AgentMode = 'build' | 'plan' | 'ask'
+
+interface ModelTier {
+  id: string
+  name: string
+  provider: string
+  tier: 'Fast' | 'Reasoning' | 'Heavy'
+  desc: string
 }
 
+const MODEL_TIERS: ModelTier[] = [
+  // Fast
+  { id: 'claude-haiku-4-5', name: 'Claude Haiku 3.5', provider: 'claude', tier: 'Fast', desc: 'Ultra-low latency sub-second turn' },
+  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', provider: 'antigravity', tier: 'Fast', desc: 'High-speed multimodal agent' },
+  { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'openai', tier: 'Fast', desc: 'Fast utility & test runner' },
+
+  // Reasoning
+  { id: 'claude-3-7-thinking', name: 'Claude 3.7 Thinking', provider: 'claude', tier: 'Reasoning', desc: 'Deep hybrid reasoning architecture' },
+  { id: 'deepseek-reasoner', name: 'DeepSeek R1', provider: 'deepseek', tier: 'Reasoning', desc: 'Open weights chain-of-thought engine' },
+  { id: 'o3-mini', name: 'OpenAI o3-mini', provider: 'openai', tier: 'Reasoning', desc: 'Math, STEM & logic synthesis' },
+
+  // Heavy / Expert
+  { id: 'claude-3-7-sonnet', name: 'Claude 3.7 Sonnet', provider: 'claude', tier: 'Heavy', desc: 'Flagship engineering & code autonomy' },
+  { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', provider: 'antigravity', tier: 'Heavy', desc: 'Massive 1M+ token context orchestration' },
+  { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai', tier: 'Heavy', desc: 'Universal reasoning and structured output' },
+]
+
 interface Props {
-  providers: Provider[]
+  providers?: Provider[]
   streaming: boolean
   tokenCount: number
   maxTokens?: number
-  onSend: (content: string, provider: string, model: string) => void
+  onSend: (content: string, provider: string, model: string, mode: AgentMode) => void
 }
 
-export function Composer({ providers, streaming, tokenCount, maxTokens = 200000, onSend }: Props) {
+export function Composer({
+  streaming,
+  tokenCount,
+  maxTokens = 200000,
+  onSend,
+}: Props) {
   const [text, setText] = useState('')
-  const [providerPop, setProviderPop] = useState(false)
-  const [selectedProvider, setSelectedProvider] = useState<string>(
-    providers.find(p => p.connected)?.id ?? providers[0]?.id ?? 'claude'
-  )
-  const [selectedModel, setSelectedModel] = useState<string>(
-    MODELS[providers.find(p => p.connected)?.id ?? 'claude']?.[0] ?? 'claude-opus-4-5'
-  )
+  const [mode, setMode] = useState<AgentMode>('build')
+  const [modelPop, setModelPop] = useState(false)
+  const [selectedModel, setSelectedModel] = useState<ModelTier>(MODEL_TIERS[6]) // Claude 3.7 Sonnet default
+  const [showSlash, setShowSlash] = useState(false)
+  const [slashFilter, setSlashFilter] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const connectedProviders = providers.filter(p => p.connected)
-
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !showSlash) {
       e.preventDefault()
       submit()
     }
   }
 
+  const handleTextChange = (val: string) => {
+    setText(val)
+    if (val.startsWith('/')) {
+      setShowSlash(true)
+      setSlashFilter(val)
+    } else {
+      setShowSlash(false)
+    }
+  }
+
+  const handleSelectSlash = (cmd: SlashCommand) => {
+    if (cmd.id === '/plan') setMode('plan')
+    else if (cmd.id === '/build') setMode('build')
+    else if (cmd.id === '/review') setMode('plan')
+    setText(`${cmd.id} `)
+    setShowSlash(false)
+    textareaRef.current?.focus()
+  }
+
   const submit = () => {
     const trimmed = text.trim()
     if (!trimmed || streaming) return
-    onSend(trimmed, selectedProvider, selectedModel)
+    onSend(trimmed, selectedModel.provider, selectedModel.id, mode)
     setText('')
+    setShowSlash(false)
   }
 
   const approxTokens = Math.ceil(text.length / 4) + tokenCount
   const tokenPct = Math.min((approxTokens / maxTokens) * 100, 100)
-  const tokenColor =
-    tokenPct > 80 ? 'oklch(0.65 0.22 25)' :
-    tokenPct > 50 ? 'oklch(0.78 0.18 75)' :
-    'var(--color-accent)'
 
   return (
-    <div
-      className="flex flex-col"
-      style={{
-        background: 'var(--color-surface)',
-        borderTop: '1px solid var(--color-border)',
-        padding: '12px 16px',
-        gap: '8px',
-      }}
-    >
-      {/* Token gauge */}
-      <div className="flex items-center gap-2.5">
-        <div
-          className="flex-1 h-px rounded-full overflow-hidden"
-          style={{ background: 'var(--color-border)' }}
-        >
-          <div
-            className="h-full rounded-full transition-all duration-300"
-            style={{ width: `${tokenPct}%`, background: tokenColor }}
+    <div className="relative mx-6 mb-4 flex-shrink-0">
+      {/* Slash Command Popover */}
+      {showSlash && (
+        <SlashCommandMenu
+          filter={slashFilter}
+          onSelect={handleSelectSlash}
+          onClose={() => setShowSlash(false)}
+        />
+      )}
+
+      {/* Floating Island Container */}
+      <div
+        className="rounded-2xl border border-[var(--color-border)] shadow-2xl overflow-hidden transition-all duration-200"
+        style={{ background: 'var(--color-surface)' }}
+      >
+        {/* Top Control Bar: Mode Switcher + Token Gauge */}
+        <div className="flex items-center justify-between px-3.5 py-2 border-b border-[var(--color-border)] bg-[var(--color-elevated)]/50">
+          {/* Tri-mode Switcher */}
+          <div className="flex items-center gap-1 bg-[var(--color-base)] p-1 rounded-lg border border-[var(--color-border)]">
+            <button
+              onClick={() => setMode('build')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                mode === 'build'
+                  ? 'bg-[var(--color-elevated)] text-[var(--color-text-primary)] shadow-sm'
+                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+              }`}
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-400" />
+              <span>Build</span>
+            </button>
+            <button
+              onClick={() => setMode('plan')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                mode === 'plan'
+                  ? 'bg-[var(--color-elevated)] text-[var(--color-text-primary)] shadow-sm'
+                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5 text-blue-400" />
+              <span>Plan</span>
+            </button>
+            <button
+              onClick={() => setMode('ask')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                mode === 'ask'
+                  ? 'bg-[var(--color-elevated)] text-[var(--color-text-primary)] shadow-sm'
+                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+              }`}
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Ask</span>
+            </button>
+          </div>
+
+          {/* Token Gauge */}
+          <div className="flex items-center gap-2 text-xs font-mono text-[var(--color-text-muted)]">
+            <div className="w-20 h-1.5 bg-[var(--color-base)] rounded-full overflow-hidden border border-[var(--color-border)]">
+              <div
+                className="h-full rounded-full transition-all duration-300"
+                style={{
+                  width: `${tokenPct}%`,
+                  background:
+                    tokenPct > 80
+                      ? 'oklch(0.65 0.22 25)'
+                      : tokenPct > 50
+                      ? 'oklch(0.78 0.18 75)'
+                      : 'var(--color-accent)',
+                }}
+              />
+            </div>
+            <span>
+              {(approxTokens / 1000).toFixed(1)}k / {(maxTokens / 1000).toFixed(0)}k
+            </span>
+          </div>
+        </div>
+
+        {/* Text Area */}
+        <div className="p-3 bg-[var(--color-base)]">
+          <textarea
+            ref={textareaRef}
+            value={text}
+            onChange={e => handleTextChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={streaming}
+            rows={3}
+            placeholder={
+              mode === 'build'
+                ? 'Type instructions or code to build... (type / for commands)'
+                : mode === 'plan'
+                ? 'Describe architectural goals or ask for system plan...'
+                : 'Ask a fast question about the workspace or code...'
+            }
+            className="w-full resize-none text-xs leading-relaxed outline-none bg-transparent font-sans"
+            style={{ color: 'var(--color-text-primary)' }}
           />
         </div>
-        <span className="text-xs font-mono flex-shrink-0" style={{ color: 'var(--color-text-muted)' }}>
-          {approxTokens.toLocaleString()} / {(maxTokens / 1000).toFixed(0)}K
-        </span>
-      </div>
 
-      {/* Textarea */}
-      <div
-        className="relative rounded-xl"
-        style={{
-          background: 'var(--color-base)',
-          border: '1px solid var(--color-border)',
-        }}
-      >
-        <textarea
-          ref={textareaRef}
-          value={text}
-          onChange={e => setText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={streaming}
-          rows={3}
-          placeholder="Message… (Enter to send, Shift+Enter for newline)"
-          className="w-full px-4 pt-3 pb-2 resize-none text-sm outline-none bg-transparent"
-          style={{
-            color: 'var(--color-text-primary)',
-            fontFamily: 'var(--font-sans)',
-            lineHeight: '1.5',
-          }}
-        />
-
-        {/* Bottom bar inside textarea area */}
-        <div className="flex items-center gap-2 px-3 pb-2.5">
-          {/* Provider / model selector */}
+        {/* Bottom Bar: Model Selector + Quick Slash button + Send */}
+        <div className="flex items-center justify-between px-3.5 py-2.5 bg-[var(--color-elevated)] border-t border-[var(--color-border)]">
+          {/* Model Selector Popover */}
           <div className="relative">
             <button
-              onClick={() => setProviderPop(p => !p)}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer"
-              style={{
-                background: 'var(--color-elevated)',
-                color: 'var(--color-text-secondary)',
-                border: '1px solid var(--color-border)',
-              }}
+              onClick={() => setModelPop(prev => !prev)}
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-border-hover)] transition-all cursor-pointer shadow-sm"
             >
-              {selectedProvider}
-              <span className="text-xs opacity-50 font-mono">{selectedModel.split('-').pop()}</span>
-              <span style={{ fontSize: 9 }}>▾</span>
+              <span className="flex items-center justify-center">
+                {getProviderIcon(selectedModel.provider, 'w-3.5 h-3.5', 14)}
+              </span>
+              <span className="font-mono text-[11px]" style={{ color: 'var(--color-text-primary)' }}>
+                {selectedModel.name}
+              </span>
+              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-[var(--color-base)] text-[var(--color-text-muted)]">
+                {selectedModel.tier}
+              </span>
+              <ChevronDown className="w-3 h-3 text-[var(--color-text-muted)]" />
             </button>
 
-            {providerPop && (
+            {/* Popover Dropdown */}
+            {modelPop && (
               <div
-                className="absolute bottom-full mb-1.5 left-0 rounded-xl overflow-hidden z-20"
-                style={{
-                  background: 'var(--color-surface)',
-                  border: '1px solid var(--color-border)',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-                  minWidth: '200px',
-                }}
+                className="absolute bottom-full mb-2 left-0 w-80 rounded-xl overflow-hidden border border-[var(--color-border)] shadow-2xl z-30"
+                style={{ background: 'var(--color-surface)' }}
               >
-                {(connectedProviders.length > 0 ? connectedProviders : providers).map(p => {
-                  const models = MODELS[p.id] ?? ['default']
-                  return (
-                    <div key={p.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                      <div
-                        className="px-3 py-1.5 text-xs font-semibold"
-                        style={{ color: 'var(--color-text-muted)', background: 'var(--color-elevated)' }}
-                      >
-                        {p.name}
+                <div className="p-2 space-y-1 max-h-72 overflow-y-auto">
+                  {(['Reasoning', 'Heavy', 'Fast'] as const).map(tier => {
+                    const tierModels = MODEL_TIERS.filter(m => m.tier === tier)
+                    return (
+                      <div key={tier} className="mb-2">
+                        <div className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-[var(--color-text-muted)]">
+                          {tier === 'Reasoning' && <Cpu className="w-3 h-3 text-purple-400" />}
+                          {tier === 'Heavy' && <Flame className="w-3 h-3 text-amber-400" />}
+                          {tier === 'Fast' && <Zap className="w-3 h-3 text-blue-400" />}
+                          <span>{tier} Tier</span>
+                        </div>
+                        {tierModels.map(m => {
+                          const isSelected = selectedModel.id === m.id
+                          return (
+                            <button
+                              key={m.id}
+                              onClick={() => {
+                                setSelectedModel(m)
+                                setModelPop(false)
+                              }}
+                              className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left cursor-pointer transition-colors ${
+                                isSelected
+                                  ? 'bg-[var(--color-elevated)] border border-[var(--color-border)]'
+                                  : 'hover:bg-[var(--color-elevated)]/60'
+                              }`}
+                            >
+                              <div className="flex-shrink-0">{getProviderIcon(m.provider, 'w-4 h-4', 16)}</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs font-mono font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
+                                  {m.name}
+                                </div>
+                                <div className="text-[10px] truncate text-[var(--color-text-muted)]">
+                                  {m.desc}
+                                </div>
+                              </div>
+                            </button>
+                          )
+                        })}
                       </div>
-                      {models.map(m => (
-                        <button
-                          key={m}
-                          onClick={() => {
-                            setSelectedProvider(p.id)
-                            setSelectedModel(m)
-                            setProviderPop(false)
-                          }}
-                          className="w-full px-3 py-1.5 text-left text-xs cursor-pointer transition-colors"
-                          style={{
-                            color: selectedProvider === p.id && selectedModel === m
-                              ? 'var(--color-text-primary)'
-                              : 'var(--color-text-secondary)',
-                            background: selectedProvider === p.id && selectedModel === m
-                              ? 'var(--color-elevated)'
-                              : 'transparent',
-                            fontFamily: 'var(--font-mono)',
-                          }}
-                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-elevated)')}
-                          onMouseLeave={e => {
-                            if (!(selectedProvider === p.id && selectedModel === m))
-                              e.currentTarget.style.background = 'transparent'
-                          }}
-                        >
-                          {m}
-                        </button>
-                      ))}
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
             )}
           </div>
 
-          <div className="flex-1" />
+          {/* Right Action Group */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setShowSlash(true)
+                setSlashFilter('')
+              }}
+              className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-mono text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface)] transition-colors cursor-pointer border border-transparent hover:border-[var(--color-border)]"
+              title="Slash commands"
+            >
+              <Command className="w-3 h-3" />
+              <span>/</span>
+            </button>
 
-          {/* Send button */}
-          <button
-            onClick={submit}
-            disabled={!text.trim() || streaming}
-            className="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer disabled:opacity-40"
-            style={{
-              background: 'var(--color-accent)',
-              color: '#000',
-            }}
-          >
-            {streaming ? (
-              <span className="inline-flex items-center gap-1.5">
-                <span
-                  className="w-2 h-2 rounded-full animate-pulse"
-                  style={{ background: '#000' }}
-                />
-                Streaming
-              </span>
-            ) : 'Send'}
-          </button>
+            <button
+              onClick={submit}
+              disabled={!text.trim() || streaming}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer disabled:opacity-40 shadow-sm"
+              style={{
+                background: 'var(--color-accent)',
+                color: '#fff',
+              }}
+            >
+              {streaming ? (
+                <>
+                  <Sparkles className="w-3.5 h-3.5 animate-spin" />
+                  <span>Thinking…</span>
+                </>
+              ) : (
+                <>
+                  <span>Send</span>
+                  <ArrowUp className="w-3.5 h-3.5" />
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
