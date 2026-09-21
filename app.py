@@ -8,7 +8,8 @@ import os
 import uuid
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+import httpx
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -147,12 +148,46 @@ PROVIDERS_METADATA = {
         "riskNotice": "",
         "defaultModel": "ollama/qwen3.5",
         "isNative": True,
-    }
+    },
+    "gcat": {
+        "id": "gcat",
+        "name": "G-CAT AI Gateway",
+        "category": "gateway",
+        "color": "#10b981",
+        "icon": "gcat",
+        "description": "Dedicated High-Performance AI Gateway for Claude, OpenAI, DeepSeek & Gemini (llm.gcat.ir).",
+        "riskNotice": "Dedicated Gateway Infrastructure: https://llm.gcat.ir/v1",
+        "defaultModel": "gcat/claude-3-7-sonnet",
+        "isNative": False,
+    },
+    "custom": {
+        "id": "custom",
+        "name": "Custom OpenAI Gateway",
+        "category": "custom",
+        "color": "#8b5cf6",
+        "icon": "custom",
+        "description": "Any arbitrary OpenAI-compatible endpoint with custom Base URL and Bearer API Key.",
+        "riskNotice": "External Custom Gateway endpoint.",
+        "defaultModel": "custom/model",
+        "isNative": False,
+    },
 }
 
 
 @app.get("/api/providers")
-async def get_providers():
+async def get_providers(request: Request):
+    guest_mode = request.headers.get("x-guest-mode") == "true"
+    if guest_mode:
+        results = []
+        for pid, meta in PROVIDERS_METADATA.items():
+            results.append({
+                **meta,
+                "connectionsCount": 0,
+                "isActive": False,
+                "connections": [],
+            })
+        return {"providers": results}
+
     raw = await router_bridge.get_providers()
     connections = raw.get("connections", [])
 
@@ -171,6 +206,32 @@ async def get_providers():
                 "priority": 1,
                 "isActive": True,
             }]
+
+        # Check G-CAT API key
+        if pid == "gcat":
+            gcat_key = os.environ.get("GCAT_API_KEY", "")
+            if bool(gcat_key) and not gcat_key.startswith("your_"):
+                is_active = True
+                prov_conns = [{
+                    "id": "gcat-dedicated-gateway",
+                    "name": "G-CAT Dedicated Gateway",
+                    "authType": "api-gateway",
+                    "priority": 1,
+                    "isActive": True,
+                }]
+
+        # Check Custom Gateway
+        if pid == "custom":
+            cust_url = os.environ.get("CUSTOM_BASE_URL", "")
+            if bool(cust_url):
+                is_active = True
+                prov_conns = [{
+                    "id": "custom-openai-gateway",
+                    "name": "Custom OpenAI Gateway",
+                    "authType": "custom-endpoint",
+                    "priority": 1,
+                    "isActive": True,
+                }]
 
         results.append({
             **meta,
@@ -244,12 +305,13 @@ def classify_model(model_id: str, provider: str) -> dict:
 
 
 @app.get("/api/models")
-async def get_models():
+async def get_models(request: Request):
     """
     Returns models strictly belonging to currently connected providers.
-    If no provider is connected, returns an empty list.
+    If no provider is connected or in guest mode, returns an empty list.
     """
-    status = await providers_manager.get_all_status()
+    guest_mode = request.headers.get("x-guest-mode") == "true"
+    status = await providers_manager.get_all_status(guest_mode=guest_mode)
     models_list = []
     for pid, pdata in status.items():
         if pid == "nine_router":
@@ -410,6 +472,67 @@ async def execute_harness(
             return model_label, resp.content, resp.input_tokens, resp.output_tokens
         # Fallback to router if native failed
         print("Native claude error:", resp.error)
+
+    # G-CAT Gateway Execution
+    if harness_id == "gcat" or requested_model.startswith("gcat/"):
+        gcat_api_key = os.environ.get("GCAT_API_KEY", "")
+        gcat_base_url = os.environ.get("GCAT_BASE_URL", "https://llm.gcat.ir/v1")
+        clean_model = requested_model.replace("gcat/", "") if requested_model.startswith("gcat/") else requested_model
+        clean_model = clean_model or "claude-3-7-sonnet"
+        messages = [
+            {"role": "system", "content": "You are an expert AI software engineer in Rezolotion Harness. Answer concisely."},
+            *history,
+            {"role": "user", "content": prompt},
+        ]
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                resp = await client.post(
+                    f"{gcat_base_url.rstrip('/')}/chat/completions",
+                    headers={"Authorization": f"Bearer {gcat_api_key}", "Content-Type": "application/json"},
+                    json={"model": clean_model, "messages": messages},
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    choices = data.get("choices", [])
+                    content = choices[0].get("message", {}).get("content", "") if choices else ""
+                    usage = data.get("usage", {})
+                    return f"gcat/{clean_model}", content, usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0)
+                else:
+                    return f"gcat/{clean_model}", f"G-CAT Gateway Error ({resp.status_code}): {resp.text}", 0, 0
+        except Exception as e:
+            return f"gcat/{clean_model}", f"G-CAT Connection Error: {str(e)}", 0, 0
+
+    # Custom OpenAI Gateway Execution
+    if harness_id == "custom" or requested_model.startswith("custom/"):
+        custom_base_url = os.environ.get("CUSTOM_BASE_URL", "")
+        custom_api_key = os.environ.get("CUSTOM_API_KEY", "")
+        clean_model = requested_model.replace("custom/", "") if requested_model.startswith("custom/") else requested_model
+        clean_model = clean_model or os.environ.get("CUSTOM_MODEL_NAME", "custom/model")
+        messages = [
+            {"role": "system", "content": "You are an AI assistant in Rezolotion Harness."},
+            *history,
+            {"role": "user", "content": prompt},
+        ]
+        headers = {"Content-Type": "application/json"}
+        if custom_api_key:
+            headers["Authorization"] = f"Bearer {custom_api_key}"
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                resp = await client.post(
+                    f"{custom_base_url.rstrip('/')}/chat/completions",
+                    headers=headers,
+                    json={"model": clean_model, "messages": messages},
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    choices = data.get("choices", [])
+                    content = choices[0].get("message", {}).get("content", "") if choices else ""
+                    usage = data.get("usage", {})
+                    return f"custom/{clean_model}", content, usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0)
+                else:
+                    return f"custom/{clean_model}", f"Custom Gateway Error ({resp.status_code}): {resp.text}", 0, 0
+        except Exception as e:
+            return f"custom/{clean_model}", f"Custom Connection Error: {str(e)}", 0, 0
 
     # Determine model
     if requested_model:
@@ -734,7 +857,7 @@ async def chat_websocket(websocket: WebSocket, session_id: Optional[str] = None)
                 routed = router.route(user_message)
 
                 try:
-                    target_harness = selected_provider if selected_provider in ["claude", "gemini", "antigravity", "openai", "deepseek", "hermes"] else routed.targets[0].value
+                    target_harness = selected_provider if selected_provider in ["claude", "gemini", "antigravity", "openai", "deepseek", "hermes", "gcat", "custom"] else routed.targets[0].value
                     model_name, content, in_toks, out_toks = await execute_harness(
                         target_harness, routed.content, history_msgs, selected_model
                     )
@@ -771,31 +894,77 @@ async def chat_websocket(websocket: WebSocket, session_id: Optional[str] = None)
 
 @app.get("/api/auth/providers")
 @app.get("/api/auth/status")
-async def get_providers_status():
-    """Returns real connection & auth status for all 7 providers."""
-    return await providers_manager.get_all_status()
+async def get_providers_status(request: Request):
+    """Returns real connection & auth status for all providers."""
+    guest_mode = request.headers.get("x-guest-mode") == "true"
+    return await providers_manager.get_all_status(guest_mode=guest_mode)
 
 
 class ConfigureProviderRequest(BaseModel):
     provider_id: str
-    key: str
-    value: str
+    key: Optional[str] = None
+    value: Optional[str] = None
+    api_key: Optional[str] = None
+    endpoint: Optional[str] = None
+    model: Optional[str] = None
 
 @app.post("/api/auth/configure")
 async def configure_provider(req: ConfigureProviderRequest):
     """Saves API key or connection parameter for a provider."""
-    providers_manager.save_env_var(req.key, req.value)
-    return {"success": True, "message": f"Updated {req.key}"}
+    if req.key and req.value is not None:
+        providers_manager.save_env_var(req.key, req.value)
+        return {"success": True, "message": f"Updated {req.key}"}
+
+    pid = req.provider_id.lower()
+    if pid == "gcat":
+        if req.api_key is not None:
+            providers_manager.save_env_var("GCAT_API_KEY", req.api_key)
+        if req.endpoint:
+            providers_manager.save_env_var("GCAT_BASE_URL", req.endpoint)
+        return {"success": True, "message": "G-CAT configuration saved to .env"}
+    elif pid == "custom":
+        if req.endpoint:
+            providers_manager.save_env_var("CUSTOM_BASE_URL", req.endpoint)
+        if req.api_key is not None:
+            providers_manager.save_env_var("CUSTOM_API_KEY", req.api_key)
+        if req.model:
+            providers_manager.save_env_var("CUSTOM_MODEL_NAME", req.model)
+        return {"success": True, "message": "Custom OpenAI Gateway configuration saved"}
+    elif pid == "claude":
+        if req.api_key is not None:
+            providers_manager.save_env_var("CLAUDE_API_KEY", req.api_key)
+        return {"success": True, "message": "Claude API key saved"}
+    elif pid in ("antigravity", "gemini"):
+        if req.api_key is not None:
+            providers_manager.save_env_var("AGY_API_KEY", req.api_key)
+        return {"success": True, "message": "AntiGravity Gemini API key saved"}
+    elif pid in ("openai", "codex", "chatgpt"):
+        if req.api_key is not None:
+            providers_manager.save_env_var("OPENAI_API_KEY", req.api_key)
+        return {"success": True, "message": "OpenAI API key saved"}
+    elif pid == "deepseek":
+        if req.api_key is not None:
+            providers_manager.save_env_var("DEEPSEEK_API_KEY", req.api_key)
+        return {"success": True, "message": "DeepSeek API key saved"}
+    elif pid == "openrouter":
+        if req.api_key is not None:
+            providers_manager.save_env_var("OPENROUTER_API_KEY", req.api_key)
+        return {"success": True, "message": "OpenRouter API key saved"}
+
+    return {"success": True, "message": f"Configured {req.provider_id}"}
 
 
 class TestProviderRequest(BaseModel):
     provider_id: str
     key: Optional[str] = None
+    api_key: Optional[str] = None
+    endpoint: Optional[str] = None
 
 @app.post("/api/auth/test")
 async def test_provider(req: TestProviderRequest):
     """Performs live connectivity verification for a provider."""
-    return await providers_manager.test_provider(req.provider_id, req.key)
+    actual_key = req.key or req.api_key
+    return await providers_manager.test_provider(req.provider_id, actual_key, req.endpoint)
 
 
 # ── User Authentication & Workspace Isolation ─────────────────────────────

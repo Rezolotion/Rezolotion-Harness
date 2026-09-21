@@ -46,6 +46,7 @@ interface RawProvider {
   has_key: boolean
   email?: string | null
   connection_id?: string | null
+  endpoint?: string | null
 }
 
 interface RawThread {
@@ -83,13 +84,23 @@ function normalizeProviders(raw: Record<string, RawProvider>): Provider[] {
       ? 'cli'
       : p.auth_method.toLowerCase().includes('oauth')
       ? 'oauth'
+      : id === 'gcat' || id === 'custom' || p.type === 'gateway'
+      ? 'gateway'
       : 'api_key',
-    env_var: p.type.includes('api') ? `${id.toUpperCase()}_API_KEY` : null,
+    env_var:
+      id === 'gcat'
+        ? 'GCAT_API_KEY'
+        : id === 'custom'
+        ? 'CUSTOM_API_KEY'
+        : p.type.includes('api')
+        ? `${id.toUpperCase()}_API_KEY`
+        : null,
     note: p.details,
     models: p.models || [],
     email: p.email,
     auth_method: p.auth_method,
     connection_id: p.connection_id,
+    endpoint: p.endpoint,
   }))
 }
 

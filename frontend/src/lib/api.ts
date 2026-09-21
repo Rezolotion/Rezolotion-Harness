@@ -6,6 +6,10 @@ function getHeaders(): Record<string, string> {
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
   }
+  const isGuest = typeof window !== 'undefined' && localStorage.getItem('rezolotion_guest_mode') === 'true'
+  if (isGuest) {
+    headers['X-Guest-Mode'] = 'true'
+  }
   return headers
 }
 

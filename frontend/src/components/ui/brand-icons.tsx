@@ -138,6 +138,52 @@ export function NineRouterIcon({ className = 'w-4 h-4', size = 16 }: IconProps) 
   )
 }
 
+export function GCatIcon({ className = 'w-4 h-4', size = 16 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      style={{ color: '#10b981' }}
+    >
+      <path d="M12 5c-4.5 0-8 3.5-8 8 0 4 3 6.5 8 6.5s8-2.5 8-6.5c0-4.5-3.5-8-8-8z" />
+      <path d="M7 6.5 4 2l4.5 1.5" />
+      <path d="M17 6.5 20 2l-4.5 1.5" />
+      <circle cx="9" cy="12" r="1" fill="currentColor" />
+      <circle cx="15" cy="12" r="1" fill="currentColor" />
+      <path d="m11 15 1 1 1-1" />
+    </svg>
+  )
+}
+
+export function CustomGatewayIcon({ className = 'w-4 h-4', size = 16 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      style={{ color: '#8b5cf6' }}
+    >
+      <rect width="20" height="8" x="2" y="2" rx="2" />
+      <rect width="20" height="8" x="2" y="14" rx="2" />
+      <line x1="6" x2="6.01" y1="6" y2="6" />
+      <line x1="6" x2="6.01" y1="18" y2="18" />
+    </svg>
+  )
+}
+
 export function getProviderIcon(providerId: string, className = 'w-4 h-4', size = 16): React.ReactElement {
   switch (providerId.toLowerCase()) {
     case 'claude':
@@ -158,6 +204,10 @@ export function getProviderIcon(providerId: string, className = 'w-4 h-4', size 
       return <HermesIcon className={className} size={size} />
     case 'ninerouter':
       return <NineRouterIcon className={className} size={size} />
+    case 'gcat':
+      return <GCatIcon className={className} size={size} />
+    case 'custom':
+      return <CustomGatewayIcon className={className} size={size} />
     default:
       return <ClaudeIcon className={className} size={size} />
   }

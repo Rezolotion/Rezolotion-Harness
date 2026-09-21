@@ -12,6 +12,7 @@ export interface Provider {
   email?: string | null
   auth_method?: string
   connection_id?: string | null
+  endpoint?: string | null
 }
 
 export interface ModelOption {

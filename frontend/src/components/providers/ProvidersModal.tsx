@@ -46,6 +46,8 @@ interface OAuthAuthorizeResponse {
 export function ProvidersModal({ providers, onClose, onRefresh }: Props) {
   const [selected, setSelected] = useState<string>(providers[0]?.id ?? 'antigravity')
   const [keyInput, setKeyInput] = useState('')
+  const [endpointInput, setEndpointInput] = useState('')
+  const [modelInput, setModelInput] = useState('')
   const [showKey, setShowKey] = useState(false)
   const [status, setStatus] = useState<string>('')
   const [loading, setLoading] = useState(false)
@@ -53,6 +55,21 @@ export function ProvidersModal({ providers, onClose, onRefresh }: Props) {
   const [copiedCli, setCopiedCli] = useState(false)
 
   const selectedProvider = providers.find(p => p.id === selected)
+
+  const handleSelect = (pid: string) => {
+    setSelected(pid)
+    setKeyInput('')
+    setStatus('')
+    if (pid === 'gcat') {
+      setEndpointInput('https://llm.gcat.ir/v1')
+    } else if (pid === 'custom') {
+      setEndpointInput('https://api.openai.com/v1')
+      setModelInput('gpt-4o')
+    } else {
+      setEndpointInput('')
+      setModelInput('')
+    }
+  }
 
   const handleOAuthLogin = async (providerId: string) => {
     setOauthLoading(true)
@@ -112,6 +129,7 @@ export function ProvidersModal({ providers, onClose, onRefresh }: Props) {
       const res = await api.post<TestResult>('/api/auth/test', {
         provider_id: selected,
         api_key: keyInput || undefined,
+        endpoint: endpointInput || undefined,
       })
       setStatus(res.success ? (res.message || 'Connected successfully') : `Failed: ${res.message}`)
     } catch (_) {
@@ -122,15 +140,18 @@ export function ProvidersModal({ providers, onClose, onRefresh }: Props) {
   }
 
   const handleSave = async () => {
-    if (!selectedProvider || !keyInput.trim()) return
+    if (!selectedProvider) return
+    if (selected !== 'custom' && !keyInput.trim()) return
     setLoading(true)
     setStatus('Writing to environment…')
     try {
       const res = await api.post<ConfigResult>('/api/auth/configure', {
         provider_id: selected,
-        api_key: keyInput,
+        api_key: keyInput || undefined,
+        endpoint: endpointInput || undefined,
+        model: modelInput || undefined,
       })
-      setStatus(res.success ? 'Key saved to .env' : `Save failed: ${res.message}`)
+      setStatus(res.success ? 'Configuration saved to .env' : `Save failed: ${res.message}`)
       onRefresh()
       setKeyInput('')
     } catch (_) {
@@ -197,11 +218,7 @@ export function ProvidersModal({ providers, onClose, onRefresh }: Props) {
               return (
                 <button
                   key={p.id}
-                  onClick={() => {
-                    setSelected(p.id)
-                    setKeyInput('')
-                    setStatus('')
-                  }}
+                  onClick={() => handleSelect(p.id)}
                   className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-left transition-colors cursor-pointer ${
                     isSelected ? 'bg-[var(--color-elevated)] font-medium' : 'hover:bg-[var(--color-elevated)]/50'
                   }`}
@@ -350,12 +367,87 @@ export function ProvidersModal({ providers, onClose, onRefresh }: Props) {
                   </div>
                 )}
 
+                {/* Dedicated G-CAT Hero Card */}
+                {selected === 'gcat' && (
+                  <div className="p-4 rounded-xl border border-emerald-800/40 bg-emerald-950/20 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400">
+                        {getProviderIcon('gcat', 'w-4 h-4', 16)}
+                        <span>Dedicated G-CAT AI Gateway (llm.gcat.ir)</span>
+                      </div>
+                      <a
+                        href="https://llm.gcat.ir"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1 text-[11px] font-mono text-emerald-400 hover:underline"
+                      >
+                        <span>llm.gcat.ir</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                    <p className="text-[11px] text-[var(--color-text-muted)] leading-relaxed">
+                      Enterprise Iranian & global AI proxy gateway with multi-model aggregation. Unlocks Claude 3.7 Sonnet, OpenAI GPT-4o, DeepSeek R1, and Gemini 2.5 Pro via a single API token.
+                    </p>
+                    <div className="space-y-1.5 pt-1">
+                      <label className="text-[11px] font-medium text-[var(--color-text-secondary)]">Gateway Endpoint</label>
+                      <input
+                        type="text"
+                        value={endpointInput || 'https://llm.gcat.ir/v1'}
+                        onChange={e => setEndpointInput(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl text-xs font-mono outline-none bg-[var(--color-base)] border border-[var(--color-border)] focus:border-emerald-500 text-[var(--color-text-primary)]"
+                        placeholder="https://llm.gcat.ir/v1"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Dedicated Custom OpenAI Endpoint Card */}
+                {selected === 'custom' && (
+                  <div className="p-4 rounded-xl border border-purple-800/40 bg-purple-950/20 space-y-3">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-purple-400">
+                      {getProviderIcon('custom', 'w-4 h-4', 16)}
+                      <span>Custom OpenAI-Compatible Gateway</span>
+                    </div>
+                    <p className="text-[11px] text-[var(--color-text-muted)] leading-relaxed">
+                      Route queries to any private or third-party endpoint (vLLM, LMStudio, Together AI, Groq, OpenRouter, or private cloud cluster).
+                    </p>
+                    <div className="space-y-2.5 pt-1">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-medium text-[var(--color-text-secondary)]">Base URL (Required)</label>
+                        <input
+                          type="text"
+                          value={endpointInput}
+                          onChange={e => setEndpointInput(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl text-xs font-mono outline-none bg-[var(--color-base)] border border-[var(--color-border)] focus:border-purple-500 text-[var(--color-text-primary)]"
+                          placeholder="https://api.together.xyz/v1"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-medium text-[var(--color-text-secondary)]">Model Identifier</label>
+                        <input
+                          type="text"
+                          value={modelInput}
+                          onChange={e => setModelInput(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl text-xs font-mono outline-none bg-[var(--color-base)] border border-[var(--color-border)] focus:border-purple-500 text-[var(--color-text-primary)]"
+                          placeholder="meta-llama/llama-3.3-70b-instruct"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* API Key Form (Secondary or Primary) */}
                 <div className="space-y-2 pt-1 border-t border-[var(--color-border)]/60">
                   <label className="flex items-center justify-between text-xs font-medium text-[var(--color-text-secondary)]">
                     <div className="flex items-center gap-1.5">
                       <KeyRound className="w-3.5 h-3.5 text-amber-400" />
-                      <span>{selectedProvider.env_var || 'API Key (Optional / Alternate)'}</span>
+                      <span>
+                        {selected === 'gcat'
+                          ? 'G-CAT Bearer API Key'
+                          : selected === 'custom'
+                          ? 'API Key / Bearer Token (Optional)'
+                          : selectedProvider.env_var || 'API Key (Optional / Alternate)'}
+                      </span>
                     </div>
                     <span className="text-[10px] text-[var(--color-text-muted)]">Saved locally to .env</span>
                   </label>
@@ -364,7 +456,7 @@ export function ProvidersModal({ providers, onClose, onRefresh }: Props) {
                       type={showKey ? 'text' : 'password'}
                       value={keyInput}
                       onChange={e => setKeyInput(e.target.value)}
-                      placeholder="sk-••••••••••••••••••••••••"
+                      placeholder={selected === 'gcat' ? 'gcat-••••••••••••••••••••••••' : 'sk-••••••••••••••••••••••••'}
                       className="w-full pl-3 pr-10 py-2.5 rounded-xl text-xs font-mono outline-none bg-[var(--color-base)] border border-[var(--color-border)] focus:border-[var(--color-accent)] text-[var(--color-text-primary)]"
                     />
                     <button
@@ -390,10 +482,14 @@ export function ProvidersModal({ providers, onClose, onRefresh }: Props) {
 
                   <button
                     onClick={() => void handleSave()}
-                    disabled={loading || !keyInput.trim()}
+                    disabled={
+                      loading ||
+                      (selected !== 'custom' && !keyInput.trim()) ||
+                      (selected === 'custom' && !endpointInput.trim())
+                    }
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--color-accent)] text-white hover:opacity-95 transition-all cursor-pointer disabled:opacity-40"
                   >
-                    <span>Save Key</span>
+                    <span>{selectedProvider.connected ? 'Update Config' : 'Save & Unlock'}</span>
                   </button>
                 </div>
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, ReactNode } from 'react'
-import { ShieldCheck, ArrowRight, Lock, User, Sparkles } from 'lucide-react'
+import { ShieldCheck, ArrowRight, Lock, User, Sparkles, UserCheck } from 'lucide-react'
 import { api } from '@/lib/api'
 
 interface Props {
@@ -32,6 +32,7 @@ export function AuthGate({ children }: Props) {
       if (res.success && res.token) {
         localStorage.setItem('rezolotion_session_token', res.token)
         localStorage.setItem('rezolotion_user', res.user.username)
+        localStorage.setItem('rezolotion_guest_mode', 'false')
         setSessionToken(res.token)
       } else {
         setError('Authentication failed')
@@ -41,6 +42,13 @@ export function AuthGate({ children }: Props) {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleContinueAsGuest = () => {
+    localStorage.setItem('rezolotion_session_token', 'guest-preview-token')
+    localStorage.setItem('rezolotion_user', 'Guest Tester')
+    localStorage.setItem('rezolotion_guest_mode', 'true')
+    setSessionToken('guest-preview-token')
   }
 
   if (sessionToken) {
@@ -119,6 +127,24 @@ export function AuthGate({ children }: Props) {
           >
             <span>{loading ? 'Initializing Session…' : 'Enter Studio Workspace'}</span>
             <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+
+          <div className="relative flex items-center justify-center my-3">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-[var(--color-border)]" />
+            </div>
+            <span className="relative px-3 text-[10px] uppercase font-mono tracking-wider text-[var(--color-text-muted)] bg-[var(--color-surface)]">
+              or
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleContinueAsGuest}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-medium cursor-pointer transition-all border border-[var(--color-border)] hover:border-[var(--color-border-hover)] bg-[var(--color-elevated)]/60 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+          >
+            <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Continue as Guest (Test Zero-Config Experience)</span>
           </button>
         </form>
 
