@@ -44,7 +44,8 @@ export interface ProjectsResponse {
 export interface FSNode {
   name: string
   path: string
-  type: 'file' | 'directory'
+  is_dir: boolean
+  size?: number
   children?: FSNode[]
 }
 
@@ -72,28 +73,35 @@ export interface ChatMessage {
 
 // ─── Telemetry ──────────────────────────────────────────────────────────────
 
-export interface TelemetryStats {
-  total_turns: number
-  total_sessions: number
-  total_tokens_in: number
-  total_tokens_out: number
-  total_tokens: number
-  total_errors: number
-  tool_calls: number
-  avg_tokens_per_turn: number
-  tokens_by_model: Record<string, number>
-  tokens_by_type: Record<string, number>
-  recent_turns: RecentTurn[]
+export interface TokenTypeStat {
+  name: string
+  value: number
+  color?: string
 }
 
-export interface RecentTurn {
-  id: number
-  session_id: string
-  provider: string
+export interface ModelTokenStat {
   model: string
-  tokens_in: number
-  tokens_out: number
-  tool_name: string | null
-  error: number
-  ts: number
+  tokens: number
+}
+
+export interface ToolStatItem {
+  tool: string
+  calls: number
+  success: number
+}
+
+export interface TelemetryStats {
+  total_tokens: number
+  total_sessions: number
+  total_turns: number
+  total_errors: number
+  p95_duration_ms: number
+  tokens_by_type: TokenTypeStat[]
+  tokens_by_model: ModelTokenStat[]
+  tool_stats: ToolStatItem[]
+  tool_outcomes: {
+    success: number
+    error: number
+  }
+  errors_by_category: Record<string, number>
 }

@@ -11,7 +11,7 @@ function TreeNode({ node, depth = 0 }: { node: FSNode; depth?: number }) {
   const [fileContent, setFileContent] = useState<string | null>(null)
   const [loadingFile, setLoadingFile] = useState(false)
 
-  const isDir = node.type === 'directory'
+  const isDir = Boolean(node.is_dir)
 
   const handleClick = async () => {
     if (isDir) {
@@ -23,8 +23,10 @@ function TreeNode({ node, depth = 0 }: { node: FSNode; depth?: number }) {
       }
       setLoadingFile(true)
       try {
-        const data = await api.get<{ content: string; path: string }>(`/api/fs/file?path=${encodeURIComponent(node.path)}`)
-        setFileContent(data.content)
+        const data = await api.get<{ content: string; path: string; error?: string }>(
+          `/api/fs/file?path=${encodeURIComponent(node.path)}`
+        )
+        setFileContent(data.content || data.error || '(Empty file)')
       } catch (_) {
         setFileContent('⚠ Could not read file')
       } finally {
@@ -45,15 +47,13 @@ function TreeNode({ node, depth = 0 }: { node: FSNode; depth?: number }) {
     <div>
       <button
         onClick={() => void handleClick()}
-        className="w-full flex items-center gap-1.5 py-0.5 text-left transition-colors cursor-pointer rounded"
+        className="w-full flex items-center gap-1.5 py-1 text-left transition-colors cursor-pointer rounded hover:bg-[var(--color-elevated)]"
         style={{
           paddingLeft: `${(depth * 12) + 8}px`,
-          color: isDir ? 'var(--color-text-secondary)' : 'var(--color-text-muted)',
+          color: isDir ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
           background: 'transparent',
           fontSize: '12px',
         }}
-        onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-elevated)')}
-        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
       >
         <span className="text-xs w-4 text-center flex-shrink-0">{icon}</span>
         <span className="truncate">{node.name}</span>
@@ -82,7 +82,7 @@ function TreeNode({ node, depth = 0 }: { node: FSNode; depth?: number }) {
       )}
 
       {/* Children */}
-      {isDir && open && node.children?.map(child => (
+      {isDir && open && Array.isArray(node.children) && node.children.map(child => (
         <TreeNode key={child.path} node={child} depth={depth + 1} />
       ))}
     </div>
@@ -97,8 +97,15 @@ export function FileExplorer({ projectPath }: Props) {
 
   useEffect(() => {
     setLoading(true)
-    api.get<{ tree: FSNode[] }>(`/api/fs/tree?path=${encodeURIComponent(projectPath)}`)
-      .then(data => setTree(data.tree))
+    setError(null)
+    api.get<FSNode[]>(`/api/fs/tree?path=${encodeURIComponent(projectPath || '.')}`)
+      .then(data => {
+        if (Array.isArray(data)) {
+          setTree(data)
+        } else {
+          setTree([])
+        }
+      })
       .catch(() => setError('Failed to load file tree'))
       .finally(() => setLoading(false))
   }, [projectPath])
@@ -109,13 +116,13 @@ export function FileExplorer({ projectPath }: Props) {
       style={{
         background: 'var(--color-surface)',
         borderLeft: '1px solid var(--color-border)',
-        width: '260px',
+        width: '280px',
         flexShrink: 0,
       }}
     >
       {/* Tab bar */}
       <div
-        className="flex gap-px px-2 py-2 flex-shrink-0"
+        className="flex gap-1 px-3 py-2 flex-shrink-0"
         style={{ borderBottom: '1px solid var(--color-border)' }}
       >
         {(['explorer', 'mcp', 'agents'] as const).map(tab => (
@@ -142,11 +149,19 @@ export function FileExplorer({ projectPath }: Props) {
               </div>
             )}
             {error && (
-              <div className="px-4 py-3 text-xs" style={{ color: 'oklch(0.65 0.22 25)' }}>{error}</div>
+              <div className="px-4 py-3 text-xs" style={{ color: 'var(--color-destructive, #ef4444)' }}>{error}</div>
             )}
-            {!loading && !error && tree.map(node => (
-              <TreeNode key={node.path} node={node} depth={0} />
-            ))}
+            {!loading && !error && (
+              tree.length > 0 ? (
+                tree.map(node => (
+                  <TreeNode key={node.path} node={node} depth={0} />
+                ))
+              ) : (
+                <div className="px-4 py-4 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                  No files found
+                </div>
+              )
+            )}
           </>
         )}
 
@@ -168,8 +183,8 @@ function QuickFileViewer({ projectPath, filename }: { projectPath: string; filen
 
   useEffect(() => {
     const path = `${projectPath}/${filename}`
-    api.get<{ content: string }>(`/api/fs/file?path=${encodeURIComponent(path)}`)
-      .then(d => setContent(d.content))
+    api.get<{ content?: string; error?: string }>(`/api/fs/file?path=${encodeURIComponent(path)}`)
+      .then(d => setContent(d.content || d.error || null))
       .catch(() => setContent(null))
       .finally(() => setLoading(false))
   }, [projectPath, filename])

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Provider, Project, Thread } from '@/types'
 import { StatusDot } from '@/components/ui/status-dot'
+import { useTelemetry } from '@/hooks'
 
 const PROVIDER_ICONS: Record<string, string> = {
   claude: '◆',
@@ -21,8 +22,8 @@ interface Props {
   onNewThread: (project: Project) => void
   onNewProject: () => void
   onOpenProviders: () => void
+  onOpenObserve?: () => void
 }
-
 
 export function ProjectsSidebar({
   providers,
@@ -33,14 +34,21 @@ export function ProjectsSidebar({
   onNewThread,
   onNewProject,
   onOpenProviders,
+  onOpenObserve,
 }: Props) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [view, setView] = useState<'projects' | 'observability'>('projects')
+  const { stats } = useTelemetry()
 
   const connectedCount = providers.filter(p => p.connected).length
 
   const toggle = (id: string) =>
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }))
+
+  const handleSwitchToObserve = () => {
+    setView('observability')
+    onOpenObserve?.()
+  }
 
   return (
     <aside
@@ -48,7 +56,7 @@ export function ProjectsSidebar({
       style={{
         background: 'var(--color-surface)',
         borderRight: '1px solid var(--color-border)',
-        width: '220px',
+        width: '230px',
         flexShrink: 0,
       }}
     >
@@ -66,28 +74,35 @@ export function ProjectsSidebar({
       </div>
 
       {/* Nav tabs */}
-      <div className="flex px-2 pt-2 gap-1">
-        {(['projects', 'observability'] as const).map(v => (
-          <button
-            key={v}
-            onClick={() => setView(v)}
-            className="flex-1 py-1.5 rounded-md text-xs font-medium capitalize transition-colors cursor-pointer"
-            style={{
-              background: view === v ? 'var(--color-elevated)' : 'transparent',
-              color: view === v ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
-            }}
-          >
-            {v === 'observability' ? 'Observe' : v}
-          </button>
-        ))}
+      <div className="flex px-2.5 pt-2.5 gap-1">
+        <button
+          onClick={() => setView('projects')}
+          className="flex-1 py-1.5 rounded-md text-xs font-medium capitalize transition-colors cursor-pointer"
+          style={{
+            background: view === 'projects' ? 'var(--color-elevated)' : 'transparent',
+            color: view === 'projects' ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+          }}
+        >
+          Projects
+        </button>
+        <button
+          onClick={handleSwitchToObserve}
+          className="flex-1 py-1.5 rounded-md text-xs font-medium capitalize transition-colors cursor-pointer"
+          style={{
+            background: view === 'observability' ? 'var(--color-elevated)' : 'transparent',
+            color: view === 'observability' ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+          }}
+        >
+          Observe
+        </button>
       </div>
 
       {/* New project button */}
       {view === 'projects' && (
-        <div className="px-2 pt-2">
+        <div className="px-2.5 pt-2.5">
           <button
             onClick={onNewProject}
-            className="w-full flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer"
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer"
             style={{
               background: 'transparent',
               border: '1px dashed var(--color-border)',
@@ -124,17 +139,16 @@ export function ProjectsSidebar({
                   <span className="text-xs font-medium truncate flex-1">{proj.name}</span>
                   <button
                     onClick={e => { e.stopPropagation(); onNewThread(proj) }}
-                    className="px-1.5 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    className="px-1.5 rounded text-xs opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
                     style={{ color: 'var(--color-text-muted)', background: 'transparent' }}
-                    onMouseEnter={e => { e.currentTarget.style.opacity = '1'; (e.currentTarget as HTMLElement).style.color = 'var(--color-text-primary)' }}
-                    onMouseLeave={e => { e.currentTarget.style.opacity = '' }}
+                    title="Add thread"
                   >
                     +
                   </button>
                 </button>
 
                 {/* Threads */}
-                {isExpanded && proj.threads.map(thread => {
+                {isExpanded && Array.isArray(proj.threads) && proj.threads.map(thread => {
                   const isActiveThread = activeThread?.id === thread.id
                   return (
                     <button
@@ -176,12 +190,44 @@ export function ProjectsSidebar({
         </div>
       )}
 
-      {/* Observability mini-stats */}
+      {/* Observability summary in sidebar */}
       {view === 'observability' && (
-        <div className="flex-1 flex items-center justify-center p-4">
-          <p className="text-xs text-center" style={{ color: 'var(--color-text-muted)' }}>
-            Open the Observe panel in the right column
-          </p>
+        <div className="flex-1 overflow-y-auto p-3 space-y-3">
+          <div className="p-3 rounded-lg" style={{ background: 'var(--color-elevated)' }}>
+            <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>Tokens Recorded</p>
+            <p className="text-base font-semibold font-mono" style={{ color: 'var(--color-accent)' }}>
+              {stats ? `${((stats.total_tokens || 0) / 1_000_000).toFixed(2)}M` : '…'}
+            </p>
+            <p className="text-[10px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+              Across {stats?.total_sessions ?? 0} sessions
+            </p>
+          </div>
+
+          <div className="p-3 rounded-lg space-y-1.5" style={{ background: 'var(--color-elevated)' }}>
+            <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>Latency & Errors</p>
+            <div className="flex justify-between text-xs">
+              <span style={{ color: 'var(--color-text-secondary)' }}>p95 Turn</span>
+              <span className="font-mono">{stats?.p95_duration_ms ?? 0}ms</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span style={{ color: 'var(--color-text-secondary)' }}>Errors</span>
+              <span className="font-mono" style={{ color: (stats?.total_errors || 0) > 0 ? 'oklch(0.65 0.22 25)' : 'inherit' }}>
+                {stats?.total_errors ?? 0}
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={onOpenObserve}
+            className="w-full py-1.5 rounded-lg text-xs font-medium cursor-pointer"
+            style={{
+              background: 'var(--color-elevated)',
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-text-primary)',
+            }}
+          >
+            Open Full Dashboard →
+          </button>
         </div>
       )}
 
@@ -209,7 +255,7 @@ export function ProjectsSidebar({
         {/* Provider dots */}
         <div className="flex gap-1.5 px-1">
           {providers.map(p => (
-            <StatusDot key={p.id} connected={p.connected} size="sm" title={p.name} />
+            <StatusDot key={p.id} connected={p.connected} size="sm" title={`${p.name}: ${p.connected ? 'Connected' : 'Offline'}`} />
           ))}
         </div>
       </div>

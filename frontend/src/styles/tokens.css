@@ -33,6 +33,18 @@
 
   /* Shadows (Floating overlays only) */
   --shadow-overlay: 0 12px 32px -4px rgba(0, 0, 0, 0.45), 0 4px 12px -2px rgba(0, 0, 0, 0.25);
+
+  /* ── Aliases (used by Studio components) ─────────────────────── */
+  --color-base:           var(--bg-base);
+  --color-surface:        var(--bg-surface);
+  --color-elevated:       var(--bg-elevated);
+  --color-border:         var(--border-subtle);
+  --color-accent:         var(--accent);
+  --color-text-primary:   var(--fg);
+  --color-text-secondary: var(--fg-muted);
+  --color-text-muted:     var(--fg-subtle);
+  --font-sans:            'Inter', system-ui, sans-serif;
+  --font-mono:            'JetBrains Mono', 'Fira Code', monospace;
 }
 
 .light, [data-theme="light"] {
