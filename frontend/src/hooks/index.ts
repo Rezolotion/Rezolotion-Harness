@@ -239,6 +239,7 @@ export function useChat(sessionId: string) {
       setMessages(prev => [...prev, userMsg])
 
       ws.onopen = () => {
+        const isGuest = typeof window !== 'undefined' && localStorage.getItem('rezolotion_guest_mode') === 'true'
         ws.send(
           JSON.stringify({
             content,
@@ -246,6 +247,7 @@ export function useChat(sessionId: string) {
             model,
             mode,
             chat_mode: chatMode,
+            guest_mode: isGuest,
             models:
               models && models.length > 0
                 ? models.map(m => ({ provider: m.provider, model: m.id }))

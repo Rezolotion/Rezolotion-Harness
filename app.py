@@ -178,26 +178,18 @@ PROVIDERS_METADATA = {
 async def get_providers(request: Request):
     guest_mode = request.headers.get("x-guest-mode") == "true"
     if guest_mode:
-        results = []
-        for pid, meta in PROVIDERS_METADATA.items():
-            results.append({
-                **meta,
-                "connectionsCount": 0,
-                "isActive": False,
-                "connections": [],
-            })
-        return {"providers": results}
-
-    raw = await router_bridge.get_providers()
-    connections = raw.get("connections", [])
+        connections = []
+    else:
+        raw = await router_bridge.get_providers()
+        connections = raw.get("connections", [])
 
     results = []
     for pid, meta in PROVIDERS_METADATA.items():
         prov_conns = [c for c in connections if c.get("provider") == pid]
         is_active = any(c.get("isActive", False) for c in prov_conns)
 
-        # Native Claude CLI is always active if installed locally
-        if pid == "claude" and native_claude.is_configured():
+        # Native Claude CLI is always active if installed locally (host only)
+        if not guest_mode and pid == "claude" and native_claude.is_configured():
             is_active = True
             prov_conns = prov_conns or [{
                 "id": "native-claude-cli",
@@ -209,7 +201,7 @@ async def get_providers(request: Request):
 
         # Check G-CAT API key
         if pid == "gcat":
-            gcat_key = os.environ.get("GCAT_API_KEY", "")
+            gcat_key = providers_manager.get_var("GCAT_API_KEY", guest_mode=guest_mode)
             if bool(gcat_key) and not gcat_key.startswith("your_"):
                 is_active = True
                 prov_conns = [{
@@ -222,7 +214,7 @@ async def get_providers(request: Request):
 
         # Check Custom Gateway
         if pid == "custom":
-            cust_url = os.environ.get("CUSTOM_BASE_URL", "")
+            cust_url = providers_manager.get_var("CUSTOM_BASE_URL", guest_mode=guest_mode)
             if bool(cust_url):
                 is_active = True
                 prov_conns = [{
@@ -232,6 +224,27 @@ async def get_providers(request: Request):
                     "priority": 1,
                     "isActive": True,
                 }]
+
+        # Check other guest keys
+        if guest_mode:
+            k_map = {
+                "claude": "CLAUDE_API_KEY",
+                "antigravity": "AGY_API_KEY",
+                "openai": "OPENAI_API_KEY",
+                "deepseek": "DEEPSEEK_API_KEY",
+                "openrouter": "OPENROUTER_API_KEY",
+            }
+            if pid in k_map:
+                k_val = providers_manager.get_var(k_map[pid], guest_mode=True)
+                if bool(k_val):
+                    is_active = True
+                    prov_conns = [{
+                        "id": f"guest-{pid}-key",
+                        "name": f"Guest {pid.capitalize()} Key",
+                        "authType": "api-key",
+                        "priority": 1,
+                        "isActive": True,
+                    }]
 
         results.append({
             **meta,
@@ -243,15 +256,19 @@ async def get_providers(request: Request):
 
 
 @app.get("/api/providers/{provider_id}")
-async def get_provider_detail(provider_id: str):
+async def get_provider_detail(provider_id: str, request: Request):
     if provider_id not in PROVIDERS_METADATA:
         raise HTTPException(status_code=404, detail="Provider not found")
 
+    guest_mode = request.headers.get("x-guest-mode") == "true"
     meta = PROVIDERS_METADATA[provider_id]
-    raw = await router_bridge.get_providers()
-    connections = [c for c in raw.get("connections", []) if c.get("provider") == provider_id]
+    if guest_mode:
+        connections = []
+    else:
+        raw = await router_bridge.get_providers()
+        connections = [c for c in raw.get("connections", []) if c.get("provider") == provider_id]
 
-    if provider_id == "claude" and native_claude.is_configured():
+    if not guest_mode and provider_id == "claude" and native_claude.is_configured():
         connections = [{
             "id": "native-claude-cli",
             "name": "Official Local Claude CLI (~/.local/bin/claude)",
@@ -260,16 +277,47 @@ async def get_provider_detail(provider_id: str):
             "isActive": True,
         }] + connections
 
-    all_models = await router_bridge.get_models()
+    if provider_id == "gcat":
+        gcat_key = providers_manager.get_var("GCAT_API_KEY", guest_mode=guest_mode)
+        if bool(gcat_key) and not gcat_key.startswith("your_"):
+            connections = [{
+                "id": "gcat-dedicated-gateway",
+                "name": "G-CAT Dedicated Gateway (llm.gcat.ir)",
+                "authType": "api-gateway",
+                "priority": 1,
+                "isActive": True,
+            }]
+
+    if provider_id == "custom":
+        cust_url = providers_manager.get_var("CUSTOM_BASE_URL", guest_mode=guest_mode)
+        if bool(cust_url):
+            connections = [{
+                "id": "custom-openai-gateway",
+                "name": "Custom OpenAI Gateway",
+                "authType": "custom-endpoint",
+                "priority": 1,
+                "isActive": True,
+            }]
+
+    all_models = [] if guest_mode else await router_bridge.get_models()
     prefix = "cc/" if provider_id == "claude" else ("ag/" if provider_id == "antigravity" else f"{provider_id}/")
     matching_models = [m for m in all_models if m.get("id", "").startswith(prefix)]
 
-    if provider_id == "claude" and not matching_models:
+    if not guest_mode and provider_id == "claude" and not matching_models:
         matching_models = [
             {"id": "claude-3-7-sonnet", "name": "Claude 3.7 Sonnet (Official CLI)"},
             {"id": "claude-3-5-sonnet", "name": "Claude 3.5 Sonnet (Official CLI)"},
             {"id": "claude-3-5-haiku", "name": "Claude 3.5 Haiku (Official CLI)"},
         ]
+    elif provider_id == "gcat":
+        gcat_key = providers_manager.get_var("GCAT_API_KEY", guest_mode=guest_mode)
+        if bool(gcat_key) and not gcat_key.startswith("your_"):
+            matching_models = [
+                {"id": "gcat/claude-3-7-sonnet", "name": "Claude 3.7 Sonnet (G-CAT)"},
+                {"id": "gcat/gpt-4o", "name": "GPT-4o (G-CAT)"},
+                {"id": "gcat/deepseek-r1", "name": "DeepSeek R1 (G-CAT)"},
+                {"id": "gcat/gemini-2.5-pro", "name": "Gemini 2.5 Pro (G-CAT)"},
+            ]
 
     return {
         **meta,
@@ -459,13 +507,16 @@ async def execute_harness(
     prompt: str,
     history: list[dict],
     requested_model: str = "",
+    guest_mode: bool = False,
 ) -> tuple[str, str, int, int]:
     """
     Executes the harness safely.
-    - For Claude: Runs the official native CLI binary directly (Zero Ban Risk).
-    - For AntiGravity: Runs via local Google AntiGravity session.
+    - For Claude: Runs the official native CLI binary directly (Zero Ban Risk) if not in guest mode.
+    - For AntiGravity: Runs via local Google AntiGravity session if not in guest mode.
+    - For G-CAT: Connects to https://llm.gcat.ir/v1.
+    - For Custom: Connects to custom OpenAI endpoint.
     """
-    if harness_id == "claude" and native_claude.is_configured():
+    if not guest_mode and harness_id == "claude" and native_claude.is_configured():
         resp = await native_claude.send(prompt, history)
         if resp.ok:
             model_label = requested_model or "Claude 3.7 Sonnet (Native)"
@@ -475,8 +526,8 @@ async def execute_harness(
 
     # G-CAT Gateway Execution
     if harness_id == "gcat" or requested_model.startswith("gcat/"):
-        gcat_api_key = os.environ.get("GCAT_API_KEY", "")
-        gcat_base_url = os.environ.get("GCAT_BASE_URL", "https://llm.gcat.ir/v1")
+        gcat_api_key = providers_manager.get_var("GCAT_API_KEY", guest_mode=guest_mode)
+        gcat_base_url = providers_manager.get_var("GCAT_BASE_URL", guest_mode=guest_mode, default="https://llm.gcat.ir/v1")
         clean_model = requested_model.replace("gcat/", "") if requested_model.startswith("gcat/") else requested_model
         clean_model = clean_model or "claude-3-7-sonnet"
         messages = [
@@ -504,10 +555,10 @@ async def execute_harness(
 
     # Custom OpenAI Gateway Execution
     if harness_id == "custom" or requested_model.startswith("custom/"):
-        custom_base_url = os.environ.get("CUSTOM_BASE_URL", "")
-        custom_api_key = os.environ.get("CUSTOM_API_KEY", "")
+        custom_base_url = providers_manager.get_var("CUSTOM_BASE_URL", guest_mode=guest_mode)
+        custom_api_key = providers_manager.get_var("CUSTOM_API_KEY", guest_mode=guest_mode)
         clean_model = requested_model.replace("custom/", "") if requested_model.startswith("custom/") else requested_model
-        clean_model = clean_model or os.environ.get("CUSTOM_MODEL_NAME", "custom/model")
+        clean_model = clean_model or providers_manager.get_var("CUSTOM_MODEL_NAME", guest_mode=guest_mode, default="custom/model")
         messages = [
             {"role": "system", "content": "You are an AI assistant in Rezolotion Harness."},
             *history,
@@ -570,6 +621,42 @@ async def execute_harness(
         *history,
         {"role": "user", "content": prompt},
     ]
+
+    if guest_mode:
+        if harness_id == "deepseek":
+            ds_key = providers_manager.get_var("DEEPSEEK_API_KEY", guest_mode=True)
+            if ds_key:
+                try:
+                    async with httpx.AsyncClient(timeout=60.0) as client:
+                        r = await client.post(
+                            "https://api.deepseek.com/chat/completions",
+                            headers={"Authorization": f"Bearer {ds_key}", "Content-Type": "application/json"},
+                            json={"model": "deepseek-chat", "messages": messages},
+                        )
+                        if r.status_code == 200:
+                            c = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+                            u = r.json().get("usage", {})
+                            return model_name, c, u.get("prompt_tokens", 0), u.get("completion_tokens", 0)
+                except Exception as e:
+                    return model_name, f"DeepSeek API Error: {e}", 0, 0
+        elif harness_id in ("openai", "chatgpt"):
+            oa_key = providers_manager.get_var("OPENAI_API_KEY", guest_mode=True)
+            if oa_key:
+                try:
+                    async with httpx.AsyncClient(timeout=60.0) as client:
+                        r = await client.post(
+                            "https://api.openai.com/v1/chat/completions",
+                            headers={"Authorization": f"Bearer {oa_key}", "Content-Type": "application/json"},
+                            json={"model": "gpt-4o", "messages": messages},
+                        )
+                        if r.status_code == 200:
+                            c = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+                            u = r.json().get("usage", {})
+                            return model_name, c, u.get("prompt_tokens", 0), u.get("completion_tokens", 0)
+                except Exception as e:
+                    return model_name, f"OpenAI API Error: {e}", 0, 0
+        return model_name, f"[Guest Mode Notice] No active provider key configured for '{harness_id}'. Please configure G-CAT Gateway (llm.gcat.ir) or an API key in the Providers modal to chat.", 0, 0
+
     resp = await router_bridge.chat_completion(model=model_name, messages=messages)
     choices = resp.get("choices", [])
     content = choices[0].get("message", {}).get("content", "") if choices else ""
@@ -597,6 +684,7 @@ async def chat_websocket(websocket: WebSocket, session_id: Optional[str] = None)
             selected_model = payload.get("model", "claude-3-7-sonnet")
             selected_mode = payload.get("mode", "build")
             chat_mode = payload.get("chat_mode", "single")  # single | multi_model | multi_agent
+            guest_mode = bool(payload.get("guest_mode", False))
             requested_models = payload.get("models") or [{"provider": selected_provider, "model": selected_model}]
 
             await context.add(role="user", content=user_message)
@@ -621,7 +709,7 @@ async def chat_websocket(websocket: WebSocket, session_id: Optional[str] = None)
                     mod = m_item.get("model", "claude-3-7-sonnet")
                     try:
                         m_name, m_resp, in_t, out_t = await execute_harness(
-                            prov, user_message, history_msgs, mod
+                            prov, user_message, history_msgs, mod, guest_mode=guest_mode
                         )
                         return {
                             "provider": prov,
@@ -673,7 +761,7 @@ async def chat_websocket(websocket: WebSocket, session_id: Optional[str] = None)
                 total_tokens = 0
 
                 # Detect available providers for optimal delegation
-                active_status = await providers_manager.get_all_status()
+                active_status = await providers_manager.get_all_status(guest_mode=guest_mode)
                 has_ag = active_status.get("antigravity", {}).get("connected", False)
                 has_cl = active_status.get("claude", {}).get("connected", False)
 
@@ -706,7 +794,7 @@ async def chat_websocket(websocket: WebSocket, session_id: Optional[str] = None)
                 )
                 try:
                     _, arch_content, a_in, a_out = await execute_harness(
-                        arch_prov, arch_prompt, history_msgs, arch_model
+                        arch_prov, arch_prompt, history_msgs, arch_model, guest_mode=guest_mode
                     )
                 except Exception as e:
                     arch_content = f"Architect plan drafted:\n- Requirements: {user_message}\n- Strategy: Modular refactor\n(Error detail: {e})"
@@ -744,7 +832,7 @@ async def chat_websocket(websocket: WebSocket, session_id: Optional[str] = None)
                 )
                 try:
                     _, coder_content, c_in, c_out = await execute_harness(
-                        coder_prov, coder_prompt, history_msgs, coder_model
+                        coder_prov, coder_prompt, history_msgs, coder_model, guest_mode=guest_mode
                     )
                 except Exception as e:
                     coder_content = f"Implementation completed:\n```bash\n# Implemented per spec\n```\n(Error detail: {e})"
@@ -785,7 +873,7 @@ async def chat_websocket(websocket: WebSocket, session_id: Optional[str] = None)
                 )
                 try:
                     _, rev_content, r_in, r_out = await execute_harness(
-                        rev_prov, rev_prompt, history_msgs, rev_model
+                        rev_prov, rev_prompt, history_msgs, rev_model, guest_mode=guest_mode
                     )
                 except Exception as e:
                     rev_content = f"Audit Report: PASS\n- Security: Verified\n- Tests: Validated\n(Error detail: {e})"
@@ -859,7 +947,7 @@ async def chat_websocket(websocket: WebSocket, session_id: Optional[str] = None)
                 try:
                     target_harness = selected_provider if selected_provider in ["claude", "gemini", "antigravity", "openai", "deepseek", "hermes", "gcat", "custom"] else routed.targets[0].value
                     model_name, content, in_toks, out_toks = await execute_harness(
-                        target_harness, routed.content, history_msgs, selected_model
+                        target_harness, routed.content, history_msgs, selected_model, guest_mode=guest_mode
                     )
                 except Exception as e:
                     content = f"Task completed with summary:\n```bash\n# Status: Executed\necho 'Executed via {selected_provider} ({selected_model})'\n```\nResult: {str(e)}"
@@ -909,46 +997,54 @@ class ConfigureProviderRequest(BaseModel):
     model: Optional[str] = None
 
 @app.post("/api/auth/configure")
-async def configure_provider(req: ConfigureProviderRequest):
+async def configure_provider(req: ConfigureProviderRequest, request: Request):
     """Saves API key or connection parameter for a provider."""
+    guest_mode = request.headers.get("x-guest-mode") == "true"
+
+    def _save(k: str, v: str):
+        if guest_mode:
+            providers_manager.set_guest_var(k, v)
+        else:
+            providers_manager.save_env_var(k, v)
+
     if req.key and req.value is not None:
-        providers_manager.save_env_var(req.key, req.value)
+        _save(req.key, req.value)
         return {"success": True, "message": f"Updated {req.key}"}
 
     pid = req.provider_id.lower()
     if pid == "gcat":
         if req.api_key is not None:
-            providers_manager.save_env_var("GCAT_API_KEY", req.api_key)
+            _save("GCAT_API_KEY", req.api_key)
         if req.endpoint:
-            providers_manager.save_env_var("GCAT_BASE_URL", req.endpoint)
-        return {"success": True, "message": "G-CAT configuration saved to .env"}
+            _save("GCAT_BASE_URL", req.endpoint)
+        return {"success": True, "message": "G-CAT configuration saved"}
     elif pid == "custom":
         if req.endpoint:
-            providers_manager.save_env_var("CUSTOM_BASE_URL", req.endpoint)
+            _save("CUSTOM_BASE_URL", req.endpoint)
         if req.api_key is not None:
-            providers_manager.save_env_var("CUSTOM_API_KEY", req.api_key)
+            _save("CUSTOM_API_KEY", req.api_key)
         if req.model:
-            providers_manager.save_env_var("CUSTOM_MODEL_NAME", req.model)
+            _save("CUSTOM_MODEL_NAME", req.model)
         return {"success": True, "message": "Custom OpenAI Gateway configuration saved"}
     elif pid == "claude":
         if req.api_key is not None:
-            providers_manager.save_env_var("CLAUDE_API_KEY", req.api_key)
+            _save("CLAUDE_API_KEY", req.api_key)
         return {"success": True, "message": "Claude API key saved"}
     elif pid in ("antigravity", "gemini"):
         if req.api_key is not None:
-            providers_manager.save_env_var("AGY_API_KEY", req.api_key)
+            _save("AGY_API_KEY", req.api_key)
         return {"success": True, "message": "AntiGravity Gemini API key saved"}
     elif pid in ("openai", "codex", "chatgpt"):
         if req.api_key is not None:
-            providers_manager.save_env_var("OPENAI_API_KEY", req.api_key)
+            _save("OPENAI_API_KEY", req.api_key)
         return {"success": True, "message": "OpenAI API key saved"}
     elif pid == "deepseek":
         if req.api_key is not None:
-            providers_manager.save_env_var("DEEPSEEK_API_KEY", req.api_key)
+            _save("DEEPSEEK_API_KEY", req.api_key)
         return {"success": True, "message": "DeepSeek API key saved"}
     elif pid == "openrouter":
         if req.api_key is not None:
-            providers_manager.save_env_var("OPENROUTER_API_KEY", req.api_key)
+            _save("OPENROUTER_API_KEY", req.api_key)
         return {"success": True, "message": "OpenRouter API key saved"}
 
     return {"success": True, "message": f"Configured {req.provider_id}"}
@@ -963,7 +1059,7 @@ class TestProviderRequest(BaseModel):
 @app.post("/api/auth/test")
 async def test_provider(req: TestProviderRequest):
     """Performs live connectivity verification for a provider."""
-    actual_key = req.key or req.api_key
+    actual_key = req.key if req.key is not None else req.api_key
     return await providers_manager.test_provider(req.provider_id, actual_key, req.endpoint)
 
 

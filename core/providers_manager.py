@@ -23,11 +23,20 @@ ENV_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
 class ProvidersManager:
     def __init__(self):
         self._load_env()
+        self.guest_config: Dict[str, str] = {}
 
     def _load_env(self):
         if os.path.exists(ENV_PATH):
             from dotenv import load_dotenv
             load_dotenv(ENV_PATH, override=True)
+
+    def set_guest_var(self, key: str, value: str):
+        self.guest_config[key] = value
+
+    def get_var(self, key: str, guest_mode: bool = False, default: str = "") -> str:
+        if guest_mode:
+            return self.guest_config.get(key, "")
+        return os.environ.get(key, default)
 
     def save_env_var(self, key: str, value: str):
         self._load_env()
@@ -52,56 +61,73 @@ class ProvidersManager:
         os.environ[key] = value
 
     async def get_all_status(self, guest_mode: bool = False) -> Dict[str, Any]:
-        if guest_mode:
-            return {
-                "claude": {"name": "Anthropic Claude (Native CLI)", "type": "native_cli", "connected": False, "auth_method": "None", "details": "Guest Mode (Simulated Fresh Onboarding)", "models": [], "has_key": False},
-                "antigravity": {"name": "Google AntiGravity (Gemini)", "type": "api_and_adc", "connected": False, "auth_method": "None", "details": "Guest Mode (Simulated Fresh Onboarding)", "models": [], "has_key": False},
-                "openai": {"name": "OpenAI (ChatGPT / Codex)", "type": "oauth_and_api", "connected": False, "auth_method": "None", "details": "Guest Mode (Simulated Fresh Onboarding)", "models": [], "has_key": False},
-                "deepseek": {"name": "DeepSeek AI", "type": "api", "connected": False, "auth_method": "None", "details": "Guest Mode (Simulated Fresh Onboarding)", "models": [], "has_key": False},
-                "openrouter": {"name": "OpenRouter", "type": "gateway", "connected": False, "auth_method": "None", "details": "Guest Mode (Simulated Fresh Onboarding)", "models": [], "has_key": False},
-                "hermes": {"name": "Hermes / Ollama", "type": "local", "connected": False, "auth_method": "None", "details": "Guest Mode (Simulated Fresh Onboarding)", "models": [], "has_key": False},
-                "gcat": {"name": "G-CAT AI Gateway (llm.gcat.ir)", "type": "gateway", "connected": False, "auth_method": "None", "details": "Guest Mode (Simulated Fresh Onboarding)", "models": [], "has_key": False},
-                "custom": {"name": "Custom OpenAI Gateway", "type": "custom", "connected": False, "auth_method": "None", "details": "Guest Mode (Simulated Fresh Onboarding)", "models": [], "has_key": False},
-                "nine_router": {"name": "9Router Gateway", "type": "local_gateway", "connected": False, "auth_method": "None", "details": "Guest Mode", "models": [], "has_key": False},
-            }
-
         self._load_env()
-        claude_cli_path = shutil.which("claude")
-        claude_json_path = os.path.expanduser("~/.claude.json")
-        has_claude_cli = claude_cli_path is not None
-        has_claude_json = os.path.exists(claude_json_path)
 
-        claude_api_key = os.environ.get("CLAUDE_API_KEY", "") or os.environ.get("ANTHROPIC_API_KEY", "")
-        agy_api_key = os.environ.get("AGY_API_KEY", "") or os.environ.get("GEMINI_API_KEY", "")
-        openai_api_key = os.environ.get("OPENAI_API_KEY", "") or os.environ.get("CODEX_API_KEY", "")
-        deepseek_api_key = os.environ.get("DEEPSEEK_API_KEY", "")
-        openrouter_api_key = os.environ.get("OPENROUTER_API_KEY", "")
-        hermes_url = os.environ.get("HERMES_BASE_URL", "http://localhost:11434")
-        nine_router_url = os.environ.get("NINE_ROUTER_URL", "http://localhost:20128")
-
-        # Test Hermes reachability & fetch local models
-        hermes_alive = False
-        hermes_models = []
-        try:
-            async with httpx.AsyncClient(timeout=1.0) as client:
-                res = await client.get(f"{hermes_url}/api/tags")
-                if res.status_code == 200:
-                    hermes_alive = True
-                    hermes_models = [m.get("name") for m in res.json().get("models", [])]
-        except Exception:
+        if guest_mode:
+            # Simulated isolated guest session: Zero host credential leakage
+            has_claude_cli = False
+            has_claude_json = False
+            claude_cli_path = None
             hermes_alive = False
+            hermes_models = []
+            nine_router_alive = False
+            router_connections = []
+            router_models = []
 
-        # Query 9Router active connections & models
-        nine_router_alive = await router_bridge.is_available()
-        router_connections = []
-        router_models = []
-        if nine_router_alive:
+            claude_api_key = self.guest_config.get("CLAUDE_API_KEY", "")
+            agy_api_key = self.guest_config.get("AGY_API_KEY", "")
+            openai_api_key = self.guest_config.get("OPENAI_API_KEY", "")
+            deepseek_api_key = self.guest_config.get("DEEPSEEK_API_KEY", "")
+            openrouter_api_key = self.guest_config.get("OPENROUTER_API_KEY", "")
+            hermes_url = ""
+            nine_router_url = ""
+            gcat_api_key = self.guest_config.get("GCAT_API_KEY", "")
+            gcat_base_url = self.guest_config.get("GCAT_BASE_URL", "https://llm.gcat.ir/v1")
+            custom_base_url = self.guest_config.get("CUSTOM_BASE_URL", "")
+            custom_api_key = self.guest_config.get("CUSTOM_API_KEY", "")
+            custom_model = self.guest_config.get("CUSTOM_MODEL_NAME", "custom/model")
+        else:
+            claude_cli_path = shutil.which("claude")
+            claude_json_path = os.path.expanduser("~/.claude.json")
+            has_claude_cli = claude_cli_path is not None
+            has_claude_json = os.path.exists(claude_json_path)
+
+            claude_api_key = os.environ.get("CLAUDE_API_KEY", "") or os.environ.get("ANTHROPIC_API_KEY", "")
+            agy_api_key = os.environ.get("AGY_API_KEY", "") or os.environ.get("GEMINI_API_KEY", "")
+            openai_api_key = os.environ.get("OPENAI_API_KEY", "") or os.environ.get("CODEX_API_KEY", "")
+            deepseek_api_key = os.environ.get("DEEPSEEK_API_KEY", "")
+            openrouter_api_key = os.environ.get("OPENROUTER_API_KEY", "")
+            hermes_url = os.environ.get("HERMES_BASE_URL", "http://localhost:11434")
+            nine_router_url = os.environ.get("NINE_ROUTER_URL", "http://localhost:20128")
+            gcat_api_key = os.environ.get("GCAT_API_KEY", "")
+            gcat_base_url = os.environ.get("GCAT_BASE_URL", "https://llm.gcat.ir/v1")
+            custom_base_url = os.environ.get("CUSTOM_BASE_URL", "")
+            custom_api_key = os.environ.get("CUSTOM_API_KEY", "")
+            custom_model = os.environ.get("CUSTOM_MODEL_NAME", "custom/model")
+
+            # Test Hermes reachability & fetch local models
+            hermes_alive = False
+            hermes_models = []
             try:
-                raw_provs = await router_bridge.get_providers()
-                router_connections = raw_provs.get("connections", [])
-                router_models = await router_bridge.get_models()
-            except Exception as e:
-                print("Error reading 9Router details:", e)
+                async with httpx.AsyncClient(timeout=1.0) as client:
+                    res = await client.get(f"{hermes_url}/api/tags")
+                    if res.status_code == 200:
+                        hermes_alive = True
+                        hermes_models = [m.get("name") for m in res.json().get("models", [])]
+            except Exception:
+                hermes_alive = False
+
+            # Query 9Router active connections & models
+            nine_router_alive = await router_bridge.is_available()
+            router_connections = []
+            router_models = []
+            if nine_router_alive:
+                try:
+                    raw_provs = await router_bridge.get_providers()
+                    router_connections = raw_provs.get("connections", [])
+                    router_models = await router_bridge.get_models()
+                except Exception as e:
+                    print("Error reading 9Router details:", e)
 
         # Map 9Router connections
         ag_conn = next((c for c in router_connections if c.get("provider") == "antigravity" and c.get("isActive", True)), None)
@@ -235,8 +261,6 @@ class ProvidersManager:
         nine_router_models = ["9router/auto-router"] if nine_router_alive else []
 
         # 8. G-CAT AI Gateway (https://llm.gcat.ir/v1)
-        gcat_api_key = os.environ.get("GCAT_API_KEY", "")
-        gcat_base_url = os.environ.get("GCAT_BASE_URL", "https://llm.gcat.ir/v1")
         if bool(gcat_api_key) and not gcat_api_key.startswith("your_"):
             gcat_connected = True
             gcat_auth = "G-CAT Dedicated Gateway"
@@ -255,9 +279,6 @@ class ProvidersManager:
             gcat_models = []
 
         # 9. Custom OpenAI Gateway
-        custom_base_url = os.environ.get("CUSTOM_BASE_URL", "")
-        custom_api_key = os.environ.get("CUSTOM_API_KEY", "")
-        custom_model = os.environ.get("CUSTOM_MODEL_NAME", "custom/model")
         if bool(custom_base_url):
             custom_connected = True
             custom_auth = "Custom OpenAI Gateway"
@@ -269,13 +290,18 @@ class ProvidersManager:
             custom_details = "Configure Base URL & API Key for any OpenAI-compatible provider"
             custom_models = []
 
+        def _d(details_str: str, is_conn: bool) -> str:
+            if guest_mode and not is_conn:
+                return f"Guest Mode (Simulated Fresh Onboarding) - {details_str}"
+            return details_str
+
         return {
             "antigravity": {
                 "name": "Google AntiGravity",
                 "type": "oauth_and_api",
                 "connected": ag_connected,
                 "auth_method": ag_auth,
-                "details": ag_details,
+                "details": _d(ag_details, ag_connected),
                 "models": ag_models,
                 "has_key": bool(agy_api_key) and not agy_api_key.startswith("your_"),
                 "email": ag_email,
@@ -286,7 +312,7 @@ class ProvidersManager:
                 "type": "cli_and_api",
                 "connected": cl_connected,
                 "auth_method": cl_auth,
-                "details": cl_details,
+                "details": _d(cl_details, cl_connected),
                 "models": cl_models,
                 "has_key": bool(claude_api_key) and not claude_api_key.startswith("your_"),
                 "connection_id": cl_conn_id,
@@ -296,7 +322,7 @@ class ProvidersManager:
                 "type": "oauth_and_api",
                 "connected": ox_connected,
                 "auth_method": ox_auth,
-                "details": ox_details,
+                "details": _d(ox_details, ox_connected),
                 "models": ox_models,
                 "has_key": bool(openai_api_key) and not openai_api_key.startswith("your_"),
                 "connection_id": ox_conn_id,
@@ -306,7 +332,7 @@ class ProvidersManager:
                 "type": "api",
                 "connected": ds_connected,
                 "auth_method": ds_auth,
-                "details": ds_details,
+                "details": _d(ds_details, ds_connected),
                 "models": ds_models,
                 "has_key": bool(deepseek_api_key) and not deepseek_api_key.startswith("your_"),
             },
@@ -315,7 +341,7 @@ class ProvidersManager:
                 "type": "gateway",
                 "connected": or_connected,
                 "auth_method": or_auth,
-                "details": or_details,
+                "details": _d(or_details, or_connected),
                 "models": or_models,
                 "has_key": bool(openrouter_api_key) and not openrouter_api_key.startswith("your_"),
                 "connection_id": or_conn_id,
@@ -325,16 +351,16 @@ class ProvidersManager:
                 "type": "local",
                 "connected": he_connected,
                 "auth_method": he_auth,
-                "details": he_details,
+                "details": _d(he_details, he_connected),
                 "models": he_models,
-                "has_key": True,
+                "has_key": not guest_mode,
             },
             "gcat": {
                 "name": "G-CAT AI Gateway",
                 "type": "gateway",
                 "connected": gcat_connected,
                 "auth_method": gcat_auth,
-                "details": gcat_details,
+                "details": _d(gcat_details, gcat_connected),
                 "models": gcat_models,
                 "has_key": bool(gcat_api_key) and not gcat_api_key.startswith("your_"),
                 "endpoint": gcat_base_url,
@@ -344,7 +370,7 @@ class ProvidersManager:
                 "type": "custom",
                 "connected": custom_connected,
                 "auth_method": custom_auth,
-                "details": custom_details,
+                "details": _d(custom_details, custom_connected),
                 "models": custom_models,
                 "has_key": bool(custom_api_key) and not custom_api_key.startswith("your_"),
                 "endpoint": custom_base_url,
@@ -352,11 +378,11 @@ class ProvidersManager:
             "nine_router": {
                 "name": "9Router Gateway",
                 "type": "local_gateway",
-                "connected": nine_router_alive,
-                "auth_method": "Local Daemon (:20128)",
-                "details": f"{len(router_connections)} active connection(s)",
-                "models": nine_router_models,
-                "has_key": True,
+                "connected": False if guest_mode else nine_router_alive,
+                "auth_method": "None" if guest_mode else "Local Daemon (:20128)",
+                "details": "Guest Mode (Host Daemon Isolated)" if guest_mode else f"{len(router_connections)} active connection(s)",
+                "models": [] if guest_mode else nine_router_models,
+                "has_key": not guest_mode,
             },
         }
 
@@ -440,8 +466,8 @@ class ProvidersManager:
                     return {"success": False, "message": f"Ollama returned {res.status_code}"}
 
             elif provider_id == "gcat":
-                api_key = key or os.environ.get("GCAT_API_KEY", "")
-                base_url = endpoint or os.environ.get("GCAT_BASE_URL", "https://llm.gcat.ir/v1")
+                api_key = key.strip() if key is not None else os.environ.get("GCAT_API_KEY", "")
+                base_url = endpoint.strip() if endpoint is not None else os.environ.get("GCAT_BASE_URL", "https://llm.gcat.ir/v1")
                 if not api_key:
                     return {"success": False, "message": "Missing G-CAT API key."}
                 async with httpx.AsyncClient(timeout=6.0) as client:
@@ -459,8 +485,8 @@ class ProvidersManager:
                     return {"success": False, "message": f"G-CAT Gateway returned status {res.status_code}."}
 
             elif provider_id == "custom":
-                base_url = endpoint or os.environ.get("CUSTOM_BASE_URL", "")
-                api_key = key or os.environ.get("CUSTOM_API_KEY", "")
+                base_url = endpoint.strip() if endpoint is not None else os.environ.get("CUSTOM_BASE_URL", "")
+                api_key = key.strip() if key is not None else os.environ.get("CUSTOM_API_KEY", "")
                 if not base_url:
                     return {"success": False, "message": "Missing Custom Gateway Base URL."}
                 headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
